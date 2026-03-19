@@ -1,5 +1,5 @@
 # 编译层
-FROM node:22-alpine AS build-env
+FROM node:22-bookworm-slim AS build-env
 
 # 安装 Yarn (pin a specific Yarn version)
 RUN corepack enable
@@ -11,7 +11,7 @@ WORKDIR /app
 
 # 复制 package.json 和 lock 文件，安装依赖
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production=true && yarn cache clean
+RUN yarn install --frozen-lockfile && yarn cache clean
 
 # 复制源代码
 COPY . .

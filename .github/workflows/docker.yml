@@ -1,8 +1,10 @@
 name: Build and Push Multi-Arch Docker Image
 
-# 触发条件：推送 v* 标签时（如 git tag v1.1.0 && git push --tags）
+# 触发条件：推送 master 分支或 v* 标签
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
 
@@ -35,12 +37,12 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # 从标签提取版本（匹配 v1.0.0 格式）
-      - name: Extract version from tag
+      # 生成镜像版本标识（使用提交 SHA）
+      - name: Resolve image version
         id: version
         run: |
-          VERSION="${{ github.ref_name }}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "version=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       # 构建并推送多架构镜像
       - name: Build and push multi-arch image
