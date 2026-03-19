@@ -73,13 +73,29 @@ jobs:
           envs: IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN,PROD_ENV_FILE,DEPLOY_PATH
           script_stop: true
           script: |
-            set -euo pipefail
+            set -eu
 
-            command -v docker >/dev/null 2>&1
-            docker compose version >/dev/null 2>&1
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "docker is not installed on ECS"
+              exit 1
+            fi
+
+            if docker compose version >/dev/null 2>&1; then
+              compose() { docker compose "$@"; }
+            elif command -v docker-compose >/dev/null 2>&1; then
+              compose() { docker-compose "$@"; }
+            else
+              echo "Neither 'docker compose' nor 'docker-compose' is available on ECS"
+              exit 1
+            fi
 
             mkdir -p "$DEPLOY_PATH"/data/kv
             cd "$DEPLOY_PATH"
+
+            if [ ! -f docker-compose.prod.yml ]; then
+              echo "docker-compose.prod.yml not found in $DEPLOY_PATH"
+              exit 1
+            fi
 
             if [ -n "${PROD_ENV_FILE:-}" ]; then
               printf '%s' "$PROD_ENV_FILE" > .env
@@ -97,8 +113,8 @@ jobs:
               echo "GHCR credentials are empty. Skip docker login (works only for public images)."
             fi
 
-            IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.prod.yml pull
-            IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml pull
+            IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            docker compose -f docker-compose.prod.yml ps
-            docker image prune -f
+            compose -f docker-compose.prod.yml ps || true
+            docker image prune -f || true
