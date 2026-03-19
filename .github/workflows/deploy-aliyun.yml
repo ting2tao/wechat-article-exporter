@@ -1,0 +1,104 @@
+name: Deploy to Aliyun ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy (e.g. v2.3.12). Leave empty to use latest.'
+        required: false
+        default: 'latest'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-aliyun
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ secrets.ALIYUN_DEPLOY_PATH || '/opt/wechat-article-exporter' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: vars
+        run: |
+          IMAGE_TAG="${{ inputs.image_tag }}"
+
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG="latest"
+          fi
+
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure deploy directory exists on ECS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_PORT || 22 }}
+          script_stop: true
+          script: mkdir -p "${{ env.DEPLOY_PATH }}"
+
+      - name: Copy compose file to ECS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_PORT || 22 }}
+          source: docker-compose.prod.yml
+          target: ${{ env.DEPLOY_PATH }}
+
+      - name: Deploy on ECS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_PORT || 22 }}
+          envs: IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN,PROD_ENV_FILE,DEPLOY_PATH
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            command -v docker >/dev/null 2>&1
+            docker compose version >/dev/null 2>&1
+
+            mkdir -p "$DEPLOY_PATH"/data/kv
+            cd "$DEPLOY_PATH"
+
+            if [ -n "${PROD_ENV_FILE:-}" ]; then
+              printf '%s' "$PROD_ENV_FILE" > .env
+            fi
+
+            if [ ! -f .env ]; then
+              echo ".env not found in $DEPLOY_PATH"
+              echo "Either create it manually on ECS or set PROD_ENV_FILE secret."
+              exit 1
+            fi
+
+            if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            else
+              echo "GHCR credentials are empty. Skip docker login (works only for public images)."
+            fi
+
+            IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.prod.yml pull
+            IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            docker compose -f docker-compose.prod.yml ps
+            docker image prune -f
