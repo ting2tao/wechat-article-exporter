@@ -37,7 +37,7 @@ export const CREDENTIAL_LIVE_MINUTES: number = 25;
 /**
  * Credentials 服务器主机地址
  */
-export const CREDENTIAL_API_HOST = 'http://120.77.178.18:8088';
+export const CREDENTIAL_API_HOST = 'https://proxy.nowy.top';
 
 /**
  * 文档站点地址
