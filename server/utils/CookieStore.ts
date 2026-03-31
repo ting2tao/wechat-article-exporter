@@ -1,5 +1,5 @@
 import { H3Event, parseCookies } from 'h3';
-import { CookieKVValue, getMpCookie, setMpCookie } from '~/server/kv/cookie';
+import { CookieKVValue, type CookieKVWriteResult, getMpCookie, setMpCookie } from '~/server/kv/cookie';
 
 // 表示一条 set-cookie 记录的解析结果
 export type CookieEntity = Record<string, string | number>;
@@ -158,7 +158,7 @@ class CookieStore {
    * @param token
    * @param cookie 原始的 set-cookie 字符串数组
    */
-  async setCookie(authKey: string, token: string, cookie: string[]): Promise<boolean> {
+  async setCookie(authKey: string, token: string, cookie: string[]): Promise<CookieKVWriteResult> {
     const accountCookie = new AccountCookie(token, cookie);
     // 如果已存在则先删除（保证 LRU 顺序正确）
     this.store.delete(authKey);
