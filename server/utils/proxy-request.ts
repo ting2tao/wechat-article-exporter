@@ -12,8 +12,6 @@ import { logRequest, logResponse } from '~/server/utils/logger';
  * @param options 请求参数
  */
 export async function proxyMpRequest(options: RequestOptions) {
-  const runtimeConfig = useRuntimeConfig();
-
   const headers = new Headers({
     Referer: 'https://mp.weixin.qq.com/',
     Origin: 'https://mp.weixin.qq.com',
@@ -59,6 +57,7 @@ export async function proxyMpRequest(options: RequestOptions) {
   }
 
   let setCookies: string[] = [];
+  let generatedAuthKey: string | null = null;
 
   // 处理登录请求的 uuid cookie
   if (options.action === 'start_login') {
@@ -73,6 +72,7 @@ export async function proxyMpRequest(options: RequestOptions) {
     // 提取出 token 和 cookies
     try {
       const authKey = crypto.randomUUID().replace(/-/g, '');
+      generatedAuthKey = authKey;
 
       const body = await mpResponse.clone().json();
       const redirectUrl = body?.redirect_url;
@@ -129,6 +129,9 @@ export async function proxyMpRequest(options: RequestOptions) {
   setCookies.forEach(setCookie => {
     responseHeaders.append('set-cookie', setCookie);
   });
+  if (generatedAuthKey) {
+    responseHeaders.set('X-Auth-Key', generatedAuthKey);
+  }
 
   const finalResponse = new Response(mpResponse.body, {
     status: mpResponse.status,

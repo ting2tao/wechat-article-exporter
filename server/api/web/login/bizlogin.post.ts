@@ -3,6 +3,32 @@ import { request } from '#shared/utils/request';
 import { getCookieFromResponse, getCookiesFromRequest } from '~/server/utils/CookieStore';
 import { proxyMpRequest } from '~/server/utils/proxy-request';
 
+function normalizeErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+async function extractLoginError(response: Response): Promise<string | null> {
+  try {
+    const payload = await response.clone().json();
+    const errMsg = payload?.err || payload?.message || payload?.base_resp?.err_msg;
+    if (typeof errMsg === 'string' && errMsg.trim()) {
+      return errMsg;
+    }
+  } catch {
+    // ignore json parse errors and fall back to status text below
+  }
+
+  if (!response.ok) {
+    return `登录失败（HTTP ${response.status}）`;
+  }
+
+  return null;
+}
+
 export default defineEventHandler(async event => {
   const cookie = getCookiesFromRequest(event);
 
@@ -32,30 +58,41 @@ export default defineEventHandler(async event => {
   });
 
   // 从响应中取出唯一的 set-cookie (即上一步 `action=login` 标志所设置的 auth-key=xxx)
-  const authKey = getCookieFromResponse('auth-key', response);
+  const authKey = response.headers.get('X-Auth-Key') || getCookieFromResponse('auth-key', response);
   if (!authKey) {
     return {
-      err: '登录失败，请稍后重试',
+      err: (await extractLoginError(response)) || '登录失败，请稍后重试',
     };
   }
 
-  const { nick_name, head_img } = await request(`/api/web/mp/info`, {
-    headers: {
-      Cookie: `auth-key=${authKey}`,
-    },
-  });
-  if (!nick_name) {
+  try {
+    const { nick_name, head_img, error } = await request<{
+      nick_name: string;
+      head_img: string;
+      error?: string;
+    }>(`/api/web/mp/info`, {
+      headers: {
+        'X-Auth-Key': authKey,
+      },
+    });
+
+    if (!nick_name) {
+      return {
+        err: error || '获取公众号昵称失败，请稍后重试',
+      };
+    }
+
+    const body = JSON.stringify({
+      nickname: nick_name,
+      avatar: head_img,
+      expires: dayjs().add(4, 'days').toString(),
+    });
+    const headers = new Headers(response.headers);
+    headers.set('Content-Length', new TextEncoder().encode(body).length.toString());
+    return new Response(body, { headers: headers });
+  } catch (error) {
     return {
-      err: '获取公众号昵称失败，请稍后重试',
+      err: `获取公众号昵称失败：${normalizeErrorMessage(error)}`,
     };
   }
-
-  const body = JSON.stringify({
-    nickname: nick_name,
-    avatar: head_img,
-    expires: dayjs().add(4, 'days').toString(),
-  });
-  const headers = new Headers(response.headers);
-  headers.set('Content-Length', new TextEncoder().encode(body).length.toString());
-  return new Response(body, { headers: headers });
 });
