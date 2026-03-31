@@ -86,11 +86,11 @@ export async function proxyMpRequest(options: RequestOptions) {
       }
 
       console.log('token', token);
-      const success = await cookieStore.setCookie(authKey, token, mpResponse.headers.getSetCookie());
-      if (!success) {
-        throw new Error('cookie 写入 KV 存储失败');
+      const { persisted, error } = await cookieStore.setCookie(authKey, token, mpResponse.headers.getSetCookie());
+      if (!persisted) {
+        console.warn(`cookie 写入 KV 存储失败，已降级为仅内存会话: ${error || 'unknown error'}`);
       }
-      console.log('cookie 写入成功');
+      console.log(persisted ? 'cookie 写入成功' : 'cookie 已写入内存，KV 持久化失败');
 
       setCookies = [
         `auth-key=${authKey}; Path=/; Expires=${dayjs().add(4, 'days').toString()}; Secure; HttpOnly`,
