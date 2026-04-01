@@ -26,6 +26,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate deployment secrets
+        env:
+          ALIYUN_HOST: ${{ secrets.ALIYUN_HOST }}
+          ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
+          ALIYUN_SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+        run: |
+          set -eu
+
+          missing=''
+
+          for key in ALIYUN_HOST ALIYUN_USER ALIYUN_SSH_KEY; do
+            eval "value=\${$key:-}"
+            if [ -z "$value" ]; then
+              missing="$missing $key"
+            fi
+          done
+
+          if [ -n "$missing" ]; then
+            echo "Missing required GitHub Actions secrets:$missing"
+            exit 1
+          fi
+
       - name: Resolve image tag
         id: vars
         run: |
@@ -44,6 +66,7 @@ jobs:
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_PORT || 22 }}
+          debug: true
           script_stop: true
           script: mkdir -p "${{ env.DEPLOY_PATH }}"
 
@@ -71,32 +94,54 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_PORT || 22 }}
           envs: IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN,PROD_ENV_FILE,DEPLOY_PATH
+          debug: true
           script_stop: true
           script: |
             set -eu
 
-            if ! command -v docker >/dev/null 2>&1; then
-              echo "docker is not installed on ECS"
+            log() {
+              echo "[deploy] $*"
+            }
+
+            fail() {
+              echo "[deploy] ERROR: $*" >&2
               exit 1
+            }
+
+            log "host=$(hostname)"
+            log "user=$(id -un)"
+            log "deploy_path=$DEPLOY_PATH"
+            log "image_tag=${IMAGE_TAG:-latest}"
+
+            if ! command -v docker >/dev/null 2>&1; then
+              fail "docker is not installed on ECS"
+            fi
+
+            if ! docker info >/dev/null 2>&1; then
+              id || true
+              fail "docker daemon is unreachable, or the SSH user lacks permission to access Docker"
             fi
 
             if docker compose version >/dev/null 2>&1; then
               compose() { docker compose "$@"; }
+              log "using docker compose"
             elif command -v docker-compose >/dev/null 2>&1; then
               compose() { docker-compose "$@"; }
+              log "using docker-compose"
             else
-              echo "Neither 'docker compose' nor 'docker-compose' is available on ECS"
-              exit 1
+              fail "Neither 'docker compose' nor 'docker-compose' is available on ECS"
             fi
 
+            log "prepare deploy directory"
             mkdir -p "$DEPLOY_PATH"/data/kv
             cd "$DEPLOY_PATH"
 
             if [ ! -f docker-compose.prod.yml ]; then
-              echo "docker-compose.prod.yml not found in $DEPLOY_PATH"
-              exit 1
+              ls -la "$DEPLOY_PATH" || true
+              fail "docker-compose.prod.yml not found in $DEPLOY_PATH"
             fi
 
+            log "write environment file"
             if [ -n "${PROD_ENV_FILE:-}" ]; then
               printf '%s' "$PROD_ENV_FILE" > .env
             elif [ ! -f .env ]; then
@@ -104,13 +149,28 @@ jobs:
             fi
 
             if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+              log "login to ghcr.io as $GHCR_USERNAME"
+              if ! echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin; then
+                fail "docker login to ghcr.io failed"
+              fi
             else
-              echo "GHCR credentials are empty. Skip docker login (works only for public images)."
+              log "GHCR credentials are empty. Skip docker login (works only for public images)."
             fi
 
-            IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml pull
-            IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml up -d --remove-orphans
+            log "validate compose file"
+            if ! IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml config >/dev/null; then
+              fail "docker compose config validation failed"
+            fi
+
+            log "pull image"
+            if ! IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml pull; then
+              fail "docker compose pull failed"
+            fi
+
+            log "start containers"
+            if ! IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml up -d --remove-orphans; then
+              fail "docker compose up failed"
+            fi
 
             compose -f docker-compose.prod.yml ps || true
             docker image prune -f || true
