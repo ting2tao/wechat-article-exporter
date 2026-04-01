@@ -13,6 +13,7 @@ import { AgGridVue } from 'ag-grid-vue3';
 import { defu } from 'defu';
 import { formatTimeStamp } from '#shared/utils/helpers';
 import { getArticleList } from '~/apis';
+import { deleteWorkerAccounts, upsertWorkerAccounts } from '~/apis/worker';
 import GlobalSearchAccountDialog from '~/components/global/SearchAccountDialog.vue';
 import GridAccountActions from '~/components/grid/AccountActions.vue';
 import GridLoadProgress from '~/components/grid/LoadProgress.vue';
@@ -67,6 +68,7 @@ function addAccount() {
 async function onSelectAccount(account: MpAccount) {
   addBtnLoading.value = true;
   await loadAccountArticle(account, false);
+  await upsertWorkerAccounts([account]);
   await refresh();
   addBtnLoading.value = false;
   toast.success('公众号添加成功', `已成功添加公众号【${account.nickname}】，并同步了第一页的文章数据`);
@@ -353,7 +355,11 @@ function onGridReady(params: GridReadyEvent) {
   gridApi.value = params.api;
 
   restoreColumnState();
-  refresh();
+  refresh().then(async () => {
+    if (globalRowData.length > 0) {
+      await upsertWorkerAccounts(globalRowData);
+    }
+  });
 }
 
 function onColumnStateChange() {
@@ -416,6 +422,7 @@ function deleteSelectedAccounts() {
       try {
         isDeleting.value = true;
         await deleteAccountData(ids);
+        await deleteWorkerAccounts(ids);
         // 通知 Credentials 面板这些公众号已被移除
         ids.forEach(fakeid => accountEventBus.emit('account-removed', { fakeid: fakeid }));
       } finally {
@@ -455,6 +462,7 @@ async function handleFileChange(evt: Event) {
       }
 
       await importMpAccounts(infos);
+      await upsertWorkerAccounts(infos);
       await refresh();
     } catch (error) {
       console.error('导入公众号时 JSON 解析失败:', error);
