@@ -37,6 +37,50 @@ async function fetchMpJson<T>(authKey: string, endpoint: string, query: Record<s
   return response.json() as Promise<T>;
 }
 
+export async function checkMpSessionStatus(
+  authKey: string
+): Promise<{ valid: boolean; nickname?: string; reason?: string }> {
+  const { cookie, token } = await getMpSession(authKey);
+  const url = new URL('https://mp.weixin.qq.com/cgi-bin/home');
+  url.searchParams.set('t', 'home/index');
+  url.searchParams.set('token', token);
+  url.searchParams.set('lang', 'zh_CN');
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Referer: 'https://mp.weixin.qq.com/',
+      Origin: 'https://mp.weixin.qq.com',
+      'User-Agent': USER_AGENT,
+      'Accept-Encoding': 'identity',
+      Cookie: cookie,
+    },
+  });
+
+  if (!response.ok) {
+    return {
+      valid: false,
+      reason: `状态检查失败: HTTP ${response.status}`,
+    };
+  }
+
+  const html = await response.text();
+  const nicknameMatchResult = html.match(/wx\.cgiData\.nick_name\s*?=\s*?"(?<nick_name>[^"]+)"/);
+  const nickname = nicknameMatchResult?.groups?.nick_name?.trim();
+
+  if (!nickname) {
+    return {
+      valid: false,
+      reason: '未能从公众号后台首页解析到账号昵称，登录态可能已失效',
+    };
+  }
+
+  return {
+    valid: true,
+    nickname,
+  };
+}
+
 export async function fetchAccountArticlePage(
   account: MpAccount,
   authKey: string,

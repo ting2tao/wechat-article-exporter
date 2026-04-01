@@ -8,9 +8,28 @@
     <div class="space-y-6">
       <UAlert color="sky" variant="soft" title="当前能力">
         <template #description>
-          当前已支持服务端定时同步公众号文章列表，并自动下载未抓取的文章 HTML。
+          当前已支持服务端定时同步公众号文章列表，并自动下载未抓取的文章 HTML。配置企业微信 webhook 后，公众号登录态失效、同步结果和下载结果会自动推送告警或通知。
         </template>
       </UAlert>
+
+      <div class="rounded-lg border border-slate-200 p-4 space-y-4">
+        <div>
+          <p class="text-lg font-medium">消息通知</p>
+          <p class="text-sm text-slate-500">留空则不推送。推荐填写企业微信机器人 webhook 地址。</p>
+        </div>
+
+        <UInput
+          v-model="form.alertWebhookUrl"
+          placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+        />
+
+        <div class="flex items-center gap-3">
+          <UButton color="blue" :loading="isSaving" @click="saveConfig">保存配置</UButton>
+          <span class="text-sm text-slate-500">
+            当前状态: {{ snapshot?.config.alertWebhookUrl ? '已配置 webhook' : '未配置 webhook' }}
+          </span>
+        </div>
+      </div>
 
       <div class="grid gap-4 xl:grid-cols-3">
         <div class="rounded-lg border border-slate-200 p-4 space-y-2">
@@ -134,6 +153,7 @@ const form = reactive({
   downloadEnabled: false,
   downloadIntervalMinutes: 60,
   downloadBatchSize: 50,
+  alertWebhookUrl: '',
 });
 
 let refreshTimer: number | null = null;
@@ -153,6 +173,7 @@ function applySnapshot(value: WorkerSchedulerSnapshot) {
   form.downloadEnabled = value.config.downloadEnabled;
   form.downloadIntervalMinutes = value.config.downloadIntervalMinutes;
   form.downloadBatchSize = value.config.downloadBatchSize;
+  form.alertWebhookUrl = value.config.alertWebhookUrl;
 }
 
 async function refreshSnapshot(showError = false) {
@@ -180,6 +201,7 @@ async function saveConfig() {
       downloadEnabled: form.downloadEnabled,
       downloadIntervalMinutes: form.downloadIntervalMinutes,
       downloadBatchSize: form.downloadBatchSize,
+      alertWebhookUrl: form.alertWebhookUrl.trim(),
     });
     applySnapshot(next);
     toast.success('后台任务配置已保存');

@@ -13,6 +13,7 @@ interface SchedulerConfigRecord {
   downloadEnabled: number;
   downloadIntervalMinutes: number;
   downloadBatchSize: number;
+  alertWebhookUrl: string | null;
   authKey: string | null;
   authBoundAt: number | null;
 }
@@ -51,6 +52,7 @@ const DEFAULT_CONFIG: SchedulerConfigRecord = {
   downloadEnabled: 0,
   downloadIntervalMinutes: 60,
   downloadBatchSize: 50,
+  alertWebhookUrl: '',
   authKey: null,
   authBoundAt: null,
 };
@@ -109,6 +111,7 @@ async function getSqlite() {
           download_enabled INTEGER NOT NULL DEFAULT 0,
           download_interval_minutes INTEGER NOT NULL DEFAULT 60,
           download_batch_size INTEGER NOT NULL DEFAULT 50,
+          alert_webhook_url TEXT NOT NULL DEFAULT '',
           auth_key TEXT,
           auth_bound_at INTEGER,
           created_at INTEGER NOT NULL,
@@ -172,13 +175,21 @@ async function getSqlite() {
           ON worker_articles(html_downloaded, is_deleted, update_time DESC);
       `);
 
+      const configColumns = db
+        .prepare<{ name: string }>('PRAGMA table_info(worker_scheduler_config)')
+        .all()
+        .map(column => column.name);
+      if (!configColumns.includes('alert_webhook_url')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN alert_webhook_url TEXT NOT NULL DEFAULT ''`);
+      }
+
       const now = Date.now();
       db.prepare(
         `
           INSERT OR IGNORE INTO worker_scheduler_config (
             id, sync_enabled, sync_interval_minutes, download_enabled, download_interval_minutes,
-            download_batch_size, auth_key, auth_bound_at, created_at, updated_at
-          ) VALUES (1, 0, 60, 0, 60, 50, NULL, NULL, ?, ?)
+            download_batch_size, alert_webhook_url, auth_key, auth_bound_at, created_at, updated_at
+          ) VALUES (1, 0, 60, 0, 60, 50, '', NULL, NULL, ?, ?)
         `
       ).run(now, now);
       db.prepare(
@@ -221,6 +232,7 @@ function mapConfig(row?: SchedulerConfigRecord): WorkerSchedulerConfig {
     downloadEnabled: toBoolean(record.downloadEnabled),
     downloadIntervalMinutes: record.downloadIntervalMinutes,
     downloadBatchSize: record.downloadBatchSize,
+    alertWebhookUrl: record.alertWebhookUrl || '',
     authBound: Boolean(record.authKey),
     authBoundAt: normalizeNullableNumber(record.authBoundAt),
   };
@@ -257,6 +269,7 @@ export async function getSchedulerConfig() {
                download_enabled as downloadEnabled,
                download_interval_minutes as downloadIntervalMinutes,
                download_batch_size as downloadBatchSize,
+               alert_webhook_url as alertWebhookUrl,
                auth_key as authKey,
                auth_bound_at as authBoundAt
         FROM worker_scheduler_config
@@ -282,6 +295,7 @@ export async function updateSchedulerConfig(
     download_enabled: number;
     download_interval_minutes: number;
     download_batch_size: number;
+    alert_webhook_url: string | null;
     auth_key: string | null;
     auth_bound_at: number | null;
   }>('SELECT * FROM worker_scheduler_config WHERE id = 1');
@@ -292,6 +306,7 @@ export async function updateSchedulerConfig(
     downloadEnabled: patch.downloadEnabled ?? toBoolean(current?.download_enabled),
     downloadIntervalMinutes: patch.downloadIntervalMinutes ?? current?.download_interval_minutes ?? 60,
     downloadBatchSize: patch.downloadBatchSize ?? current?.download_batch_size ?? 50,
+    alertWebhookUrl: patch.alertWebhookUrl === undefined ? current?.alert_webhook_url || '' : patch.alertWebhookUrl,
     authKey: patch.authKey === undefined ? current?.auth_key || null : patch.authKey,
     authBoundAt: patch.authBoundAt === undefined ? current?.auth_bound_at || null : patch.authBoundAt,
   };
@@ -305,6 +320,7 @@ export async function updateSchedulerConfig(
           download_enabled = ?,
           download_interval_minutes = ?,
           download_batch_size = ?,
+          alert_webhook_url = ?,
           auth_key = ?,
           auth_bound_at = ?,
           updated_at = ?
@@ -316,6 +332,7 @@ export async function updateSchedulerConfig(
       next.downloadEnabled ? 1 : 0,
       Math.max(1, Number(next.downloadIntervalMinutes) || 60),
       Math.max(1, Number(next.downloadBatchSize) || 50),
+      next.alertWebhookUrl.trim(),
       next.authKey,
       next.authBoundAt,
       now,

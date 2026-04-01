@@ -1,6 +1,7 @@
 import { sleep } from '#shared/utils/helpers';
 import { downloadPendingHtmlBatch } from '~/server/services/worker/html-downloader';
-import { fetchAccountArticlePage } from '~/server/services/worker/mp-client';
+import { checkMpSessionStatus, fetchAccountArticlePage } from '~/server/services/worker/mp-client';
+import { notifyWorkerStatus } from '~/server/services/worker/notifier';
 import {
   getSchedulerAuthKey,
   getSchedulerConfig,
@@ -15,10 +16,15 @@ import type { MpAccount } from '~/store/v2/info';
 
 const SCHEDULER_TICK_MS = 15 * 1000;
 const SYNC_PAGE_SLEEP_MS = 3000;
+const MP_STATUS_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+const MP_STATUS_ALERT_COOLDOWN_MS = 60 * 60 * 1000;
+const WORKER_STATUS_ALERT_COOLDOWN_MS = 10 * 60 * 1000;
 
 let schedulerStarted = false;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let activeTask: Promise<void> | null = null;
+let lastMpStatusCheckAt = 0;
+let lastMpSessionValid: boolean | null = null;
 
 function getNextRunAt(
   enabled: boolean,
@@ -89,12 +95,13 @@ async function runSyncTaskInternal() {
 
   const accounts = await listTrackedAccounts();
   if (accounts.length === 0) {
+    const summary = '当前没有托管公众号，已跳过同步';
     await updateSchedulerState({
       lastSyncFinishedAt: Date.now(),
-      lastSyncSummary: '当前没有托管公众号，已跳过同步',
+      lastSyncSummary: summary,
       lastSyncError: '',
     });
-    return;
+    return summary;
   }
 
   let inserted = 0;
@@ -105,21 +112,84 @@ async function runSyncTaskInternal() {
     updated += result.updated;
   }
 
+  const summary = `已同步 ${accounts.length} 个公众号，新增 ${inserted} 篇文章，更新 ${updated} 篇文章`;
   await updateSchedulerState({
     lastSyncFinishedAt: Date.now(),
-    lastSyncSummary: `已同步 ${accounts.length} 个公众号，新增 ${inserted} 篇文章，更新 ${updated} 篇文章`,
+    lastSyncSummary: summary,
     lastSyncError: '',
   });
+
+  return summary;
 }
 
 async function runDownloadTaskInternal() {
   const config = await getSchedulerConfig();
   const summary = await downloadPendingHtmlBatch(config.downloadBatchSize);
+  const summaryText = `已下载 ${summary.completed} 篇 HTML，失败 ${summary.failed} 篇，检测到已删除 ${summary.deleted} 篇`;
   await updateSchedulerState({
     lastDownloadFinishedAt: Date.now(),
-    lastDownloadSummary: `已下载 ${summary.completed} 篇 HTML，失败 ${summary.failed} 篇，检测到已删除 ${summary.deleted} 篇`,
+    lastDownloadSummary: summaryText,
     lastDownloadError: '',
   });
+
+  return summaryText;
+}
+
+async function checkMpStatusIfNeeded(config: Awaited<ReturnType<typeof getSchedulerConfig>>) {
+  if (!config.syncEnabled) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastMpStatusCheckAt < MP_STATUS_CHECK_INTERVAL_MS) {
+    return;
+  }
+
+  lastMpStatusCheckAt = now;
+
+  const authKey = await getSchedulerAuthKey();
+  if (!authKey) {
+    lastMpSessionValid = false;
+    await notifyWorkerStatus({
+      title: '公众号状态告警',
+      lines: ['状态: 未绑定后台任务登录态', '说明: 请重新扫码登录公众号后台，并在设置页保存一次任务配置'],
+      dedupeKey: 'mp-auth-missing',
+      cooldownMs: MP_STATUS_ALERT_COOLDOWN_MS,
+    });
+    return;
+  }
+
+  try {
+    const status = await checkMpSessionStatus(authKey);
+    if (status.valid) {
+      if (lastMpSessionValid === false) {
+        await notifyWorkerStatus({
+          title: '公众号状态恢复',
+          lines: [`状态: 已恢复正常`, `公众号: ${status.nickname || '--'}`],
+          dedupeKey: 'mp-auth-restored',
+          cooldownMs: 60 * 1000,
+        });
+      }
+
+      lastMpSessionValid = true;
+      return;
+    }
+
+    lastMpSessionValid = false;
+    await notifyWorkerStatus({
+      title: '公众号状态告警',
+      lines: ['状态: 登录态疑似失效', `详情: ${status.reason || '请重新扫码登录公众号后台'}`],
+      dedupeKey: 'mp-auth-invalid',
+      cooldownMs: MP_STATUS_ALERT_COOLDOWN_MS,
+    });
+  } catch (error) {
+    await notifyWorkerStatus({
+      title: '公众号状态检查失败',
+      lines: [`详情: ${error instanceof Error ? error.message : String(error)}`],
+      dedupeKey: 'mp-status-check-failed',
+      cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
+    });
+  }
 }
 
 async function runTask(task: 'sync' | 'download') {
@@ -133,12 +203,23 @@ async function runTask(task: 'sync' | 'download') {
       nextSyncAt: getNextRunAt(config.syncEnabled, config.syncIntervalMinutes, Date.now(), state.nextSyncAt),
     });
     try {
-      await runSyncTaskInternal();
+      const summary = await runSyncTaskInternal();
+      await notifyWorkerStatus({
+        title: '后台任务通知',
+        lines: [`任务: 公众号同步`, `结果: ${summary}`],
+      });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       await updateSchedulerState({
         lastSyncFinishedAt: Date.now(),
         lastSyncSummary: '',
-        lastSyncError: error instanceof Error ? error.message : String(error),
+        lastSyncError: message,
+      });
+      await notifyWorkerStatus({
+        title: '后台任务告警',
+        lines: [`任务: 公众号同步`, `结果: 失败`, `详情: ${message}`],
+        dedupeKey: `worker-sync-error:${message}`,
+        cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
       });
     } finally {
       await updateSchedulerState({ syncRunning: false });
@@ -159,12 +240,23 @@ async function runTask(task: 'sync' | 'download') {
     ),
   });
   try {
-    await runDownloadTaskInternal();
+    const summary = await runDownloadTaskInternal();
+    await notifyWorkerStatus({
+      title: '后台任务通知',
+      lines: [`任务: HTML 下载`, `结果: ${summary}`],
+    });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     await updateSchedulerState({
       lastDownloadFinishedAt: Date.now(),
       lastDownloadSummary: '',
-      lastDownloadError: error instanceof Error ? error.message : String(error),
+      lastDownloadError: message,
+    });
+    await notifyWorkerStatus({
+      title: '后台任务告警',
+      lines: [`任务: HTML 下载`, `结果: 失败`, `详情: ${message}`],
+      dedupeKey: `worker-download-error:${message}`,
+      cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
     });
   } finally {
     await updateSchedulerState({ downloadRunning: false });
@@ -179,6 +271,8 @@ async function tick() {
 
   const [config, state] = await Promise.all([getSchedulerConfig(), getSchedulerState()]);
   const now = Date.now();
+
+  await checkMpStatusIfNeeded(config);
 
   const shouldRunSync = config.syncEnabled && !state.syncRunning && !!state.nextSyncAt && state.nextSyncAt <= now;
   const shouldRunDownload =
@@ -223,11 +317,23 @@ export async function ensureWorkerSchedulerStarted() {
   schedulerTimer = setInterval(() => {
     void tick().catch(error => {
       console.error('后台调度器 tick 失败:', error);
+      void notifyWorkerStatus({
+        title: '后台任务告警',
+        lines: [`任务: 调度器 tick`, `结果: 失败`, `详情: ${error instanceof Error ? error.message : String(error)}`],
+        dedupeKey: 'worker-scheduler-tick-failed',
+        cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
+      });
     });
   }, SCHEDULER_TICK_MS);
 
   void tick().catch(error => {
     console.error('后台调度器启动失败:', error);
+    void notifyWorkerStatus({
+      title: '后台任务告警',
+      lines: [`任务: 调度器启动`, `结果: 失败`, `详情: ${error instanceof Error ? error.message : String(error)}`],
+      dedupeKey: 'worker-scheduler-start-failed',
+      cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
+    });
   });
 }
 

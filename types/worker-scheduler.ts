@@ -4,6 +4,7 @@ export interface WorkerSchedulerConfig {
   downloadEnabled: boolean;
   downloadIntervalMinutes: number;
   downloadBatchSize: number;
+  alertWebhookUrl: string;
   authBound: boolean;
   authBoundAt: number | null;
 }

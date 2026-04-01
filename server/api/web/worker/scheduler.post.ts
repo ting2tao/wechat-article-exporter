@@ -9,6 +9,7 @@ export default defineEventHandler(async event => {
     downloadEnabled?: boolean;
     downloadIntervalMinutes?: number;
     downloadBatchSize?: number;
+    alertWebhookUrl?: string;
   }>(event);
 
   const current = await getSchedulerConfig();
@@ -29,6 +30,7 @@ export default defineEventHandler(async event => {
     downloadEnabled: body.downloadEnabled ?? current.downloadEnabled,
     downloadIntervalMinutes: Math.max(1, Number(body.downloadIntervalMinutes) || current.downloadIntervalMinutes),
     downloadBatchSize: Math.max(1, Number(body.downloadBatchSize) || current.downloadBatchSize),
+    alertWebhookUrl: body.alertWebhookUrl?.trim() ?? current.alertWebhookUrl,
     authKey: authKey || undefined,
     authBoundAt: authKey ? Date.now() : undefined,
   });

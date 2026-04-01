@@ -12,6 +12,7 @@ export async function saveWorkerSchedulerConfig(payload: {
   downloadEnabled: boolean;
   downloadIntervalMinutes: number;
   downloadBatchSize: number;
+  alertWebhookUrl: string;
 }) {
   return request<WorkerSchedulerSnapshot>('/api/web/worker/scheduler', {
     method: 'POST',
