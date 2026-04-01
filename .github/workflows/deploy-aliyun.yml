@@ -99,12 +99,8 @@ jobs:
 
             if [ -n "${PROD_ENV_FILE:-}" ]; then
               printf '%s' "$PROD_ENV_FILE" > .env
-            fi
-
-            if [ ! -f .env ]; then
-              echo ".env not found in $DEPLOY_PATH"
-              echo "Either create it manually on ECS or set PROD_ENV_FILE secret."
-              exit 1
+            elif [ ! -f .env ]; then
+              touch .env
             fi
 
             if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
