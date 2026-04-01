@@ -71,18 +71,6 @@
           name="exportJsonIncludeContent"
           label="导出 JSON 中包含文章内容"
         />
-        <UCheckbox
-          v-model="preferences.exportConfig.exportJsonIncludeComments"
-          name="exportJsonIncludeComments"
-          label="导出 JSON 中包含留言数据"
-        />
-      </div>
-      <div>
-        <UCheckbox
-          v-model="preferences.exportConfig.exportHtmlIncludeComments"
-          name="exportHtmlIncludeComments"
-          label="导出 HTML 中包含留言数据"
-        />
       </div>
     </div>
   </UCard>

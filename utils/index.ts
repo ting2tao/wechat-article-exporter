@@ -1,36 +1,21 @@
 import JSZip from 'jszip';
 import mime from 'mime';
-import { formatTimeStamp, sleep } from '#shared/utils/helpers';
+import { sleep } from '#shared/utils/helpers';
 import { request } from '#shared/utils/request';
-import { getComment } from '~/apis';
 import { getAssetCache, updateAssetCache } from '~/store/v2/assets';
 import type { DownloadableArticle } from '~/types/types';
 import type { AudioResource, VideoPageInfo } from '~/types/video';
 import * as pool from '~/utils/pool';
-import { extractCommentId } from './comment';
 
 /**
  * 使用代理下载资源
  * @param url 资源地址
  * @param proxy 代理地址
- * @param withCredential
  * @param timeout 超时时间(单位: 秒)，默认 30
  */
-async function downloadAssetWithProxy<T extends Blob | string>(
-  url: string,
-  proxy: string | undefined,
-  withCredential = false,
-  timeout = 30
-) {
-  const headers: Record<string, string> = {};
-  if (withCredential) {
-    try {
-      const credentials = JSON.parse(window.localStorage.getItem('credentials')!);
-      headers.cookie = `pass_ticket=${credentials.pass_ticket};wap_sid2=${credentials.wap_sid2}`;
-    } catch (e) {}
-  }
+async function downloadAssetWithProxy<T extends Blob | string>(url: string, proxy: string | undefined, timeout = 30) {
   let targetURL = proxy
-    ? `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify(headers))}`
+    ? `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify({}))}`
     : url;
   targetURL = targetURL.replace(/^http:\/\//, 'https://');
 
@@ -50,7 +35,7 @@ async function downloadArticleHTML(articleURL: string, title?: string) {
   const parser = new DOMParser();
 
   const htmlDownloadFn = async (url: string, proxy: string) => {
-    const fullHTML = await downloadAssetWithProxy<string>(url, proxy, true);
+    const fullHTML = await downloadAssetWithProxy<string>(url, proxy);
 
     // 验证是否下载完整
     const document = parser.parseFromString(fullHTML, 'text/html');
@@ -89,7 +74,7 @@ export async function downloadArticleHTMLs(articles: DownloadableArticle[], call
   const results: DownloadableArticle[] = [];
 
   const htmlDownloadFn = async (article: DownloadableArticle, proxy: string) => {
-    const fullHTML = await downloadAssetWithProxy<string>(article.url, proxy, true);
+    const fullHTML = await downloadAssetWithProxy<string>(article.url, proxy);
 
     // 验证是否下载完整
     const document = parser.parseFromString(fullHTML, 'text/html');
@@ -310,76 +295,6 @@ export async function packHTMLAssets(fakeid: string, html: string, title: string
       link.className = js_share_source.className;
       link.innerHTML = js_share_source.innerHTML;
       js_share_source.replaceWith(link);
-    }
-  }
-
-  // 下载留言数据
-  let commentHTML = '';
-  const comment_id = extractCommentId(html);
-  if (comment_id) {
-    const commentResponse = await getComment(comment_id);
-    // 抓到了留言数据
-    if (commentResponse) {
-      // 留言总数
-      const totalCount =
-        commentResponse.elected_comment.length +
-        commentResponse.elected_comment.reduce((total, item) => {
-          return total + item.reply_new.reply_total_cnt;
-        }, 0);
-
-      commentHTML += '<div style="max-width: 667px;margin: 0 auto;padding: 10px 10px 80px;">';
-      commentHTML += `<p style="font-size: 15px;color: #949494;">留言 ${totalCount}</p>`;
-      commentHTML += '<div style="margin-top: -10px;">';
-      commentResponse.elected_comment.forEach(comment => {
-        commentHTML += '<div style="margin-top: 25px;"><div style="display: flex;">';
-        if ([1, 2].includes(comment.identity_type)) {
-          commentHTML += `<img src="${comment.logo_url}" style="display: block;width: 30px;height: 30px;border-radius: 50%;margin-right: 8px;" alt="">`;
-        } else {
-          commentHTML += `<img src="${comment.logo_url}" style="display: block;width: 30px;height: 30px;border-radius: 2px;margin-right: 8px;" alt="">`;
-        }
-        commentHTML += '<div style="flex: 1;"><p style="display: flex;line-height: 16px;margin-bottom: 5px;">';
-        commentHTML += `<span style="margin-right: 5px;font-size: 15px;color: #949494;">${comment.nick_name}</span>`;
-        commentHTML += `<span style="margin-right: 5px;font-size: 12px;color: #b5b5b5;">${comment?.ip_wording?.province_name}</span>`;
-        commentHTML += `<span style="font-size: 12px;color: #b5b5b5;">${formatTimeStamp(comment.create_time)}</span>`;
-        commentHTML += '<span style="flex: 1;"></span><span style="display: inline-flex;align-items: center;">';
-        commentHTML += `<span class="sns_opr_btn sns_praise_btn" style="font-size: 12px;color: #8b8a8a;">${comment.like_num || ''}</span>`;
-        commentHTML += '</span></p>';
-        commentHTML += `<p style="font-size: 15px;color: #333;white-space: pre-line;">${comment.content}</p>`;
-        commentHTML += '</div></div>';
-
-        if (comment.reply_new && comment.reply_new.reply_list.length > 0) {
-          commentHTML += '<div style="padding-left: 38px;">';
-          comment.reply_new.reply_list.forEach(reply => {
-            commentHTML += '<div style="display: flex;margin-top: 15px;">';
-            if ([1, 2].includes(reply.identity_type)) {
-              commentHTML += `<img src="${reply.logo_url}" style="display: block;width: 23px;height: 23px;border-radius: 50%;margin-right: 8px;" alt="">`;
-            } else {
-              commentHTML += `<img src="${reply.logo_url}" style="display: block;width: 23px;height: 23px;border-radius: 2px;margin-right: 8px;" alt="">`;
-            }
-            commentHTML += '<div style="flex: 1;"><p style="display: flex;line-height: 16px;margin-bottom: 5px;">';
-            commentHTML += `<span style="margin-right: 5px;font-size: 15px;color: #949494;">${reply.nick_name}</span>`;
-            commentHTML += `<span style="margin-right: 5px;font-size: 12px;color: #b5b5b5;">${reply?.ip_wording?.province_name}</span>`;
-            commentHTML += `<span style="font-size: 12px;color: #b5b5b5;">${formatTimeStamp(reply.create_time)}</span>`;
-            commentHTML +=
-              '<span style="flex: 1;"></span><span style="display: inline-flex;align-items: center; font-size: 12px;color: #b5b5b5;">';
-            commentHTML += `<span class="sns_opr_btn sns_praise_btn" style="font-size: 12px;color: #8b8a8a;">${reply.reply_like_num || ''}</span>`;
-            commentHTML += '</span></p>';
-            commentHTML += `<p style="font-size: 15px;color: #333;white-space: pre-line;">${reply.content}</p>`;
-            commentHTML += '</div></div>';
-          });
-          commentHTML += '</div>';
-        }
-        if (comment.reply_new.reply_total_cnt - comment.reply_new.reply_list.length > 0) {
-          commentHTML +=
-            '<p style="display: flex;align-items: center; font-size: 14px;color: #a3a0a0;padding-left: 38px;padding-top: 5px;">';
-          commentHTML += `<span>${comment.reply_new.reply_total_cnt - comment.reply_new.reply_list.length}条回复</span>`;
-          commentHTML +=
-            '<img src="https://wxa.wxs.qq.com/images/wxapp/feedback_icon.png" alt="" style="filter: invert(1);width: 10px;height: 6px;margin-left: 5px;">';
-          commentHTML += '</p>';
-        }
-        commentHTML += '</div>';
-      });
-      commentHTML += '</div></div>';
     }
   }
 
@@ -882,8 +797,6 @@ ${pageContentHTML}
 ${jsArticleBottomBarHTML}
 
 ${readNum !== -1 ? '<p class="__page_content__">阅读量 ' + readNum + '</p>' : ''}
-<!-- 评论数据 -->
-${commentHTML}
 </body>
 </html>`;
 

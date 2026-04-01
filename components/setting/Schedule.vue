@@ -9,7 +9,6 @@
       <UAlert color="sky" variant="soft" title="当前能力">
         <template #description>
           当前已支持服务端定时同步公众号文章列表，并自动下载未抓取的文章 HTML。
-          阅读量和留言依赖 Credential 服务端存储，后续再继续补齐。
         </template>
       </UAlert>
 

@@ -10,7 +10,7 @@
 ![Package Version]
 
 
-一款在线的 **微信公众号文章批量下载** 工具，支持导出阅读量与评论数据，无需搭建任何环境，可通过 [在线网站] 使用，同时也支持 docker 私有化部署和 Cloudflare 部署。
+一款在线的 **微信公众号文章批量下载** 工具，无需搭建任何环境，可通过 [在线网站] 使用，同时也支持 docker 私有化部署和 Cloudflare 部署。
 
 支持下载各种文件格式，其中 HTML 格式可100%还原文章排版与样式。
 
@@ -41,7 +41,6 @@
 - [x] 支持合集下载
 - [x] 支持图片分享消息
 - [x] 支持视频分享消息
-- [x] 支持导出评论、评论回复、阅读量、转发量等数据 (需要抓包获取 credentials 信息，[查看操作步骤](https://docs.mptext.top/advanced/wxdown-service.html))
 - [x] 支持 Docker 部署
 - [x] 支持 Cloudflare 部署
 - [x] 开放 API 接口

@@ -1,32 +1,26 @@
 import { sleep, timeout } from '#shared/utils/helpers';
 import usePreferences from '~/composables/usePreferences';
 import { PUBLIC_PROXY_LIST } from '~/config/public-proxy';
-import type { ParsedCredential } from '~/types/credential';
 import type { Preferences } from '~/types/preferences';
 import { bestConcurrencyCount } from '~/utils';
 import { DEFAULT_OPTIONS } from './constants';
 import { ProxyManager } from './ProxyManager';
 import type { Callback, DownloaderStatus, DownloadOptions } from './types';
 
-const credentials = useLocalStorage<ParsedCredential[]>('auto-detect-credentials:credentials', []);
 const preferences: Ref<Preferences> = usePreferences() as unknown as Ref<Preferences>;
 
 // 下载器
-// 支持下载文章HTML、阅读量、留言列表
-// 注意：
-//   1. 文章HTML可并发下载
-//   2. 阅读量和留言数据由于使用了Credential，为了防止抓取过快，只能设置较低的并发量（通常为5）
-
+// 支持下载文章 HTML 与单篇文章 fakeid 修复
 export class BaseDownloader {
-  protected readonly urls: string[]; // 需要爬取的文章url列表
-  protected readonly pending: Set<string>; // 文章抓取中列表
-  protected readonly completed: Set<string>; // 文章抓取成功列表
-  protected readonly failed: Set<string>; // 文章抓取异常列表
-  protected readonly deleted: Set<string>; // 文章已删除列表
+  protected readonly urls: string[];
+  protected readonly pending: Set<string>;
+  protected readonly completed: Set<string>;
+  protected readonly failed: Set<string>;
+  protected readonly deleted: Set<string>;
 
   protected readonly options: Required<DownloadOptions>;
   protected isRunning: boolean;
-  protected readonly abortControllers: Map<string, AbortController>; // 每个文章url对应一个controller，方便进行取消
+  protected readonly abortControllers: Map<string, AbortController>;
   public readonly proxyManager: ProxyManager;
   protected events: Map<string, Callback[]>;
 
@@ -35,7 +29,6 @@ export class BaseDownloader {
 
     const proxies = (preferences.value as Preferences).privateProxyList || [];
     if (proxies.length === 0) {
-      // 如果没有配置私有代理，则使用公共代理
       proxies.push(...PUBLIC_PROXY_LIST);
     }
 
@@ -59,11 +52,6 @@ export class BaseDownloader {
     this.proxyManager = new ProxyManager(proxies, this.options.cooldownPeriod, this.options.maxFailures);
   }
 
-  /**
-   * 添加事件监听器
-   * @param type 事件类型
-   * @param listener 监听器
-   */
   public on(type: string, listener: Callback) {
     if (!this.events.has(type)) {
       this.events.set(type, []);
@@ -71,11 +59,6 @@ export class BaseDownloader {
     this.events.get(type)!.push(listener);
   }
 
-  /**
-   * 删除事件监听器
-   * @param type 事件类型
-   * @param listener 监听器
-   */
   public off(type: string, listener?: Callback) {
     if (!this.events.has(type)) {
       return;
@@ -90,24 +73,15 @@ export class BaseDownloader {
     }
   }
 
-  /**
-   * 移除所有事件监听器
-   */
   public removeAllListeners() {
     this.events.clear();
   }
 
-  /**
-   * 取消所有正在下载的请求
-   */
   public cancelAllPending(): void {
     this.abortControllers.forEach(controller => controller.abort());
     this.abortControllers.clear();
   }
 
-  /**
-   * 获取下载器状态
-   */
   public getStatus(): DownloaderStatus {
     return {
       pending: Array.from(this.pending),
@@ -118,7 +92,6 @@ export class BaseDownloader {
     };
   }
 
-  // 触发指定类型的监听器
   protected emit(type: string, ...args: any[]) {
     if (this.events.has(type)) {
       this.events.get(type)!.forEach(fn => {
@@ -127,7 +100,6 @@ export class BaseDownloader {
     }
   }
 
-  // 代理下载失败时的处理逻辑
   protected async handleDownloadFailure(proxy: string, url: string, attempt: number, error: any): Promise<void> {
     this.proxyManager.recordFailure(proxy);
     console.warn(`Attempt ${attempt + 1} failed for ${url} using ${proxy}:`, error);
@@ -139,24 +111,13 @@ export class BaseDownloader {
     }
   }
 
-  // 下载
-  protected async download(fakeid: string, url: string, proxy: string, withCredential = false): Promise<Blob> {
+  protected async download(_fakeid: string, url: string, proxy: string): Promise<Blob> {
     const abortController = new AbortController();
     this.abortControllers.set(url, abortController);
 
     try {
-      const headers: Record<string, string> = {};
-
-      // 使用设置的 credentials 来抓取元数据
-      if (withCredential) {
-        const targetCredential = credentials.value.find(item => item.biz === fakeid && item.valid);
-        if (targetCredential) {
-          headers.cookie = `pass_ticket=${targetCredential.pass_ticket};wap_sid2=${targetCredential.wap_sid2}`;
-        }
-      }
-
-      const Authorization = (preferences.value as Preferences).privateProxyAuthorization || '';
-      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify(headers))}&authorization=${Authorization}`;
+      const authorization = (preferences.value as Preferences).privateProxyAuthorization || '';
+      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent('{}')}&authorization=${authorization}`;
       const response = (await Promise.race([
         fetch(proxyUrl, {
           signal: abortController.signal,
@@ -175,7 +136,6 @@ export class BaseDownloader {
     }
   }
 
-  // 验证输入 urls 是否全部合法
   protected validateInputs(urls: string[]): void {
     urls.forEach(url => {
       try {
@@ -184,13 +144,5 @@ export class BaseDownloader {
         throw new Error(`非法URL: ${url}`);
       }
     });
-  }
-
-  // 当获取阅读量和留言数据时，需要验证 Credential 是否设置正确
-  protected validateCredential(fakeid: string): void {
-    const targetCredential = credentials.value.find(item => item.biz === fakeid && item.valid);
-    if (!targetCredential) {
-      throw new Error('目标公众号的 Credential 未设置');
-    }
   }
 }

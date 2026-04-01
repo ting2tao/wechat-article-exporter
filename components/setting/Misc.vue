@@ -36,22 +36,6 @@
           </UPopover>
         </div>
 
-        <div class="flex gap-1">
-          <UCheckbox
-            v-model="preferences.downloadConfig.metadataOverrideContent"
-            name="metadataOverrideContent"
-            label="抓取阅读量时是否覆盖文章内容"
-          />
-          <UPopover mode="hover" :popper="{ placement: 'top' }">
-            <template #panel>
-              <p class="max-w-[300px] p-3 text-sm text-gray-500">
-                在抓取阅读量时，会同时下载文章内容。<br />
-                若勾选该选项，则文章内容会同时保存到缓存中(会占用一定的存储空间)。
-              </p>
-            </template>
-            <UIcon color="gray" name="i-heroicons:question-mark-circle-16-solid" class="size-5" />
-          </UPopover>
-        </div>
       </div>
       <div class="flex-1">
         <div>

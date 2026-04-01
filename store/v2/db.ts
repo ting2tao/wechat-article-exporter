@@ -1,24 +1,43 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
 import type { ArticleAsset } from './article';
 import type { Asset } from './assets';
-import type { CommentAsset } from './comment';
-import type { CommentReplyAsset } from './comment_reply';
 import type { DebugAsset } from './debug';
 import type { HtmlAsset } from './html';
 import type { MpAccount } from './info';
-import type { Metadata } from './metadata';
 import type { ResourceAsset } from './resource';
 import type { ResourceMapAsset } from './resource-map';
+
+type CommentAssetRecord = {
+  fakeid: string;
+  url: string;
+  title: string;
+  data: unknown;
+};
+
+type CommentReplyAssetRecord = CommentAssetRecord & {
+  contentID: string;
+};
+
+type MetadataRecord = {
+  fakeid: string;
+  url: string;
+  title: string;
+  readNum: number;
+  oldLikeNum: number;
+  shareNum: number;
+  likeNum: number;
+  commentNum: number;
+};
 
 const db = new Dexie('exporter.wxdown.online') as Dexie & {
   article: Table<ArticleAsset, string>;
   asset: EntityTable<Asset, 'url'>;
-  comment: EntityTable<CommentAsset, 'url'>;
-  comment_reply: Table<CommentReplyAsset, string>;
+  comment: EntityTable<CommentAssetRecord, 'url'>;
+  comment_reply: Table<CommentReplyAssetRecord, string>;
   debug: EntityTable<DebugAsset, 'url'>;
   html: EntityTable<HtmlAsset, 'url'>;
   info: EntityTable<MpAccount, 'fakeid'>;
-  metadata: EntityTable<Metadata, 'url'>;
+  metadata: EntityTable<MetadataRecord, 'url'>;
   resource: EntityTable<ResourceAsset, 'url'>;
   'resource-map': EntityTable<ResourceMapAsset, 'url'>;
 };

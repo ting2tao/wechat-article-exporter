@@ -26,17 +26,14 @@ import { sharedGridOptions } from '~/config/shared-grid-options';
 import { articleDeleted, updateArticleFakeid, updateArticleStatus } from '~/store/v2/article';
 import { db } from '~/store/v2/db';
 import { getHtmlCache } from '~/store/v2/html';
-import type { Metadata } from '~/store/v2/metadata';
-import type { Preferences } from '~/types/preferences';
 import type { AppMsgExWithFakeID } from '~/types/types';
-import type { ArticleMetadata } from '~/utils/download/types';
 import { createBooleanColumnFilterParams, createDateColumnFilterParams } from '~/utils/grid';
 
 useHead({
   title: `单篇文章下载 | ${websiteName}`,
 });
 
-interface SingleArticleRow extends Partial<ArticleMetadata> {
+interface SingleArticleRow {
   id: string;
   fakeid: string;
   link: string;
@@ -50,13 +47,10 @@ interface SingleArticleRow extends Partial<ArticleMetadata> {
   itemidx: number;
   aid: string;
   contentDownload: boolean;
-  commentDownload: boolean;
   accountName?: string | null;
   _status: string;
   is_deleted: boolean;
 }
-
-const preferences = usePreferences();
 
 const toast = toastFactory();
 const inputUrl = ref('');
@@ -136,55 +130,6 @@ const columnDefs = ref<ColDef[]>([
     filterParams: createBooleanColumnFilterParams('已下载', '未下载'),
     minWidth: 140,
     cellClass: 'flex justify-center items-center',
-  },
-  {
-    field: 'commentDownload',
-    headerName: '留言已下载',
-    cellDataType: 'boolean',
-    filter: 'agSetColumnFilter',
-    filterParams: createBooleanColumnFilterParams('已下载', '未下载'),
-    minWidth: 150,
-    cellClass: 'flex justify-center items-center',
-  },
-  {
-    headerName: '阅读',
-    field: 'readNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '点赞',
-    field: 'oldLikeNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '分享',
-    field: 'shareNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '喜欢',
-    field: 'likeNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '留言',
-    field: 'commentNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
   },
   {
     headerName: '操作',
@@ -294,7 +239,6 @@ function createRow(url: string): SingleArticleRow {
     itemidx: idx,
     aid,
     contentDownload: false,
-    commentDownload: false,
     accountName: null,
     _status: '',
     is_deleted: false,
@@ -432,40 +376,6 @@ const {
       articleDeleted(url);
     }
   },
-  onMetadata(url: string, metadata: Metadata) {
-    const article = globalRowData.value.find(article => article.link === url);
-    if (article) {
-      article.readNum = metadata.readNum;
-      article.oldLikeNum = metadata.oldLikeNum;
-      article.shareNum = metadata.shareNum;
-      article.likeNum = metadata.likeNum;
-      article.commentNum = metadata.commentNum;
-
-      if ((preferences.value as unknown as Preferences).downloadConfig.metadataOverrideContent) {
-        // 如果同步下载文章内容，则更新相关字段
-        article.contentDownload = true;
-        article._status = '正常';
-        updateArticleStatus(url, '正常');
-
-        // 修复之前代码逻辑错误导致的数据库状态被误设置为【已删除】
-        article.is_deleted = false;
-        articleDeleted(url, false);
-      }
-
-      updateRow(article);
-    } else {
-      console.warn(`${url} not found in table data when update metadata`);
-    }
-  },
-  onComment(url: string) {
-    const article = globalRowData.value.find(article => article.link === url);
-    if (article) {
-      article.commentDownload = true;
-      updateRow(article);
-    } else {
-      console.warn(`${url} not found in table data when update commentDownload`);
-    }
-  },
 });
 
 async function downloadRows(targetRows: SingleArticleRow[], options: { silent?: boolean } = {}) {
@@ -597,13 +507,9 @@ async function removeRows() {
             :items="[
               { label: '修复fakeid', event: 'fix-fakeid' },
               { label: '文章内容', event: 'download-article-html' },
-              { label: '阅读量 (需要Credential)', event: 'download-article-metadata' },
-              { label: '留言内容 (需要Credential)', event: 'download-article-comment' },
             ]"
             @fix-fakeid="download('fakeid', selectedArticleUrls)"
             @download-article-html="download('html', selectedArticleUrls)"
-            @download-article-metadata="download('metadata', selectedArticleUrls)"
-            @download-article-comment="download('comment', selectedArticleUrls)"
           >
             <UButton
               :loading="downloadBtnLoading"

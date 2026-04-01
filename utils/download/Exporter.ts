@@ -8,11 +8,9 @@ import usePreferences from '~/composables/usePreferences';
 import { getArticleByLink } from '~/store/v2/article';
 import { getHtmlCache, type HtmlAsset } from '~/store/v2/html';
 import { getAccountNameByFakeid, getAllInfo, type MpAccount } from '~/store/v2/info';
-import { getMetadataCache } from '~/store/v2/metadata';
 import { getResourceCache, updateResourceCache } from '~/store/v2/resource';
 import { getResourceMapCache, updateResourceMapCache } from '~/store/v2/resource-map';
 import type { Preferences } from '~/types/preferences';
-import { getArticleComments, renderComments } from '~/utils/comment';
 import { BaseDownloader } from '~/utils/download/BaseDownloader';
 import { type ExcelExportEntity, export2ExcelFile, export2JsonFile } from '~/utils/exporter';
 import type { DownloadOptions } from './types';
@@ -273,14 +271,6 @@ export class Exporter extends BaseDownloader {
       if (preferences.value.exportConfig.exportExcelIncludeContent) {
         exportedArticle.content = await this.getRenderedText(url);
       }
-      const metadata = await getMetadataCache(url);
-      if (metadata) {
-        exportedArticle.readNum = metadata.readNum;
-        exportedArticle.oldLikeNum = metadata.oldLikeNum;
-        exportedArticle.shareNum = metadata.shareNum;
-        exportedArticle.likeNum = metadata.likeNum;
-        exportedArticle.commentNum = metadata.commentNum;
-      }
       data.push(exportedArticle);
 
       this.emit('export:progress', i + 1);
@@ -306,18 +296,6 @@ export class Exporter extends BaseDownloader {
 
       if (preferences.value.exportConfig.exportJsonIncludeContent) {
         exportedArticle.content = await this.getRenderedText(url);
-      }
-      const metadata = await getMetadataCache(url);
-      if (metadata) {
-        exportedArticle.readNum = metadata.readNum;
-        exportedArticle.oldLikeNum = metadata.oldLikeNum;
-        exportedArticle.shareNum = metadata.shareNum;
-        exportedArticle.likeNum = metadata.likeNum;
-        exportedArticle.commentNum = metadata.commentNum;
-      }
-      if (preferences.value.exportConfig.exportJsonIncludeComments) {
-        // 包含评论
-        exportedArticle.comments = await getArticleComments(url);
       }
       data.push(exportedArticle);
 
@@ -441,7 +419,7 @@ export class Exporter extends BaseDownloader {
    * 获取渲染后的完整 HTML 文档
    * 使用 parseCgiDataNew + renderHTMLFromCgiDataNew 管线
    */
-  private async getRenderedHTML(url: string, comments = false): Promise<string> {
+  private async getRenderedHTML(url: string): Promise<string> {
     const cached = await getHtmlCache(url);
     if (!cached) {
       console.warn(`文章(url: ${url})的 html 还未下载，不能导出其内容`);
@@ -453,7 +431,7 @@ export class Exporter extends BaseDownloader {
       console.warn(`文章(url: ${url})无法解析 cgiDataNew，跳过导出`);
       return '';
     }
-    return await renderHTMLFromCgiDataNew(cgiData, comments);
+    return await renderHTMLFromCgiDataNew(cgiData);
   }
 
   /**
@@ -626,23 +604,6 @@ export class Exporter extends BaseDownloader {
         link.innerHTML = js_share_source.innerHTML;
         js_share_source.replaceWith(link);
       }
-    }
-
-    // 渲染阅读量
-    const metadata = await getMetadataCache(cachedHtml.url);
-    const $interaction_bar = document.querySelector('#js_article_bottom_bar .interaction_bar');
-    if ($interaction_bar) {
-      $interaction_bar.insertAdjacentHTML(
-        'afterbegin',
-        '<button id="js_temp_sns_sc_readnum_btn" aria-labelledby="js_a11y_zan_btn_txt readNum" style="-webkit-text-size-adjust:  100% ;" class="sns_opr_btn sns_view_btn weui-wa-hotarea js_wx_tap_highlight wx_tap_link">' +
-          `<span class="sns_opr_gap" aria-hidden="true" id="js_bar_readnum_btn">${metadata?.readNum}</span></button>`
-      );
-    }
-
-    // 渲染留言
-    let commentHTML = '';
-    if ((preferences.value as Preferences).exportConfig.exportHtmlIncludeComments) {
-      commentHTML = await renderComments(cachedHtml.url);
     }
 
     // 文本分享消息
@@ -826,9 +787,6 @@ export class Exporter extends BaseDownloader {
 <body class="${bodyCls}">
 ${pageContentHTML}
 ${jsArticleBottomBarHTML}
-
-<!-- 评论数据 -->
-${commentHTML}
 </body>
 </html>`;
   }

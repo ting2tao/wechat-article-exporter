@@ -49,7 +49,7 @@ const syncToTimestamp = getSyncTimestamp();
 
 const preferences = usePreferences();
 
-// 账号事件总线，用于和 Credentials 面板保持列表同步
+// 账号事件总线，用于页面间保持列表同步
 const { accountEventBus } = useAccountEventBus();
 accountEventBus.on(event => {
   if (event === 'account-added' || event === 'account-removed') {
@@ -72,7 +72,6 @@ async function onSelectAccount(account: MpAccount) {
   await refresh();
   addBtnLoading.value = false;
   toast.success('公众号添加成功', `已成功添加公众号【${account.nickname}】，并同步了第一页的文章数据`);
-  // 通知 Credentials 面板按钮立即变更为“已添加”
   accountEventBus.emit('account-added', { fakeid: account.fakeid });
 }
 
@@ -415,13 +414,12 @@ function deleteSelectedAccounts() {
   const ids = rows.map(info => info.fakeid);
   modal.open(ConfirmModal, {
     title: '确定要删除所选公众号的数据吗？',
-    description: '删除之后，该公众号的所有数据(包括已下载的文章和留言等)都将被清空。',
+    description: '删除之后，该公众号的所有数据(包括已下载的文章内容和导出缓存等)都将被清空。',
     async onConfirm() {
       try {
         isDeleting.value = true;
         await deleteAccountData(ids);
         await deleteWorkerAccounts(ids);
-        // 通知 Credentials 面板这些公众号已被移除
         ids.forEach(fakeid => accountEventBus.emit('account-removed', { fakeid: fakeid }));
       } finally {
         isDeleting.value = false;

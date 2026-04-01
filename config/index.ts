@@ -30,16 +30,6 @@ export const ACCOUNT_TYPE: Record<number, string> = {
 };
 
 /**
- * Credentials 生存时间，单位：分钟
- */
-export const CREDENTIAL_LIVE_MINUTES: number = 25;
-
-/**
- * Credentials 服务器主机地址
- */
-export const CREDENTIAL_API_HOST = 'https://proxy.nowy.top';
-
-/**
  * 文档站点地址
  */
 export const docsWebSite = 'https://docs.mptext.top';

@@ -49,20 +49,3 @@ export interface ExporterStatus {
   failed: string[];
   proxy: Map<string, ProxyStatus>;
 }
-
-export interface ArticleMetadata {
-  // 阅读
-  readNum: number;
-
-  // 点赞
-  oldLikeNum: number;
-
-  // 分享
-  shareNum: number;
-
-  // 喜欢
-  likeNum: number;
-
-  // 留言
-  commentNum: number;
-}

@@ -24,14 +24,11 @@ import AccountSelectorForArticle from '~/components/selector/AccountSelectorForA
 import { isDev, websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { articleDeleted, getArticleCache, updateArticleStatus } from '~/store/v2/article';
-import { getCommentCache } from '~/store/v2/comment';
 import { getDebugCache } from '~/store/v2/debug';
 import { getHtmlCache } from '~/store/v2/html';
 import { type MpAccount } from '~/store/v2/info';
-import { getMetadataCache, type Metadata } from '~/store/v2/metadata';
 import type { Preferences } from '~/types/preferences';
 import type { AppMsgExWithFakeID } from '~/types/types';
-import type { ArticleMetadata } from '~/utils/download/types';
 import { createBooleanColumnFilterParams, createDateColumnFilterParams } from '~/utils/grid';
 
 useHead({
@@ -39,16 +36,11 @@ useHead({
 });
 
 // 当前页面的数据模型
-interface Article extends AppMsgExWithFakeID, Partial<ArticleMetadata> {
+interface Article extends AppMsgExWithFakeID {
   /**
    * 文章内容是否已下载
    */
   contentDownload: boolean;
-
-  /**
-   * 留言内容是否已下载
-   */
-  commentDownload: boolean;
 }
 
 let globalRowData: Article[] = [];
@@ -158,55 +150,6 @@ const columnDefs = ref<ColDef[]>([
     filterParams: createBooleanColumnFilterParams('已下载', '未下载'),
     minWidth: 150,
     cellClass: 'flex justify-center items-center',
-  },
-  {
-    field: 'commentDownload',
-    headerName: '留言已下载',
-    cellDataType: 'boolean',
-    filter: 'agSetColumnFilter',
-    filterParams: createBooleanColumnFilterParams('已下载', '未下载'),
-    minWidth: 150,
-    cellClass: 'flex justify-center items-center',
-  },
-  {
-    headerName: '阅读',
-    field: 'readNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '点赞',
-    field: 'oldLikeNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '分享',
-    field: 'shareNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '喜欢',
-    field: 'likeNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
-  },
-  {
-    headerName: '留言',
-    field: 'commentNum',
-    cellDataType: 'number',
-    filter: 'agNumberColumnFilter',
-    minWidth: 100,
-    cellClass: 'flex justify-center items-center font-mono',
   },
   {
     field: 'author_name',
@@ -350,22 +293,10 @@ async function switchTableData(fakeid: string) {
   const data = await getArticleCache(fakeid, Math.floor(Date.now() / 1000));
   for (const article of data) {
     const contentDownload = (await getHtmlCache(article.link)) !== undefined;
-    const commentDownload = (await getCommentCache(article.link)) !== undefined;
-    const metadata = await getMetadataCache(article.link);
-    if (metadata) {
-      articles.push({
-        ...metadata,
-        ...article,
-        contentDownload: contentDownload,
-        commentDownload: commentDownload,
-      });
-    } else {
-      articles.push({
-        ...article,
-        contentDownload: contentDownload,
-        commentDownload: commentDownload,
-      });
-    }
+    articles.push({
+      ...article,
+      contentDownload: contentDownload,
+    });
   }
   await sleep(200);
   globalRowData = articles.filter(article => (hideDeleted.value ? !article.is_deleted : true));
@@ -431,40 +362,6 @@ const {
       articleDeleted(url);
     }
   },
-  onMetadata(url: string, metadata: Metadata) {
-    const article = globalRowData.find(article => article.link === url);
-    if (article) {
-      article.readNum = metadata.readNum;
-      article.oldLikeNum = metadata.oldLikeNum;
-      article.shareNum = metadata.shareNum;
-      article.likeNum = metadata.likeNum;
-      article.commentNum = metadata.commentNum;
-
-      if ((preferences.value as unknown as Preferences).downloadConfig.metadataOverrideContent) {
-        // 如果同步下载文章内容，则更新相关字段
-        article.contentDownload = true;
-        article._status = '正常';
-        updateArticleStatus(url, '正常');
-
-        // 修复之前代码逻辑错误导致的数据库状态被误设置为【已删除】
-        article.is_deleted = false;
-        articleDeleted(url, false);
-      }
-
-      updateRow(article);
-    } else {
-      console.warn(`${url} not found in table data when update metadata`);
-    }
-  },
-  onComment(url: string) {
-    const article = globalRowData.find(article => article.link === url);
-    if (article) {
-      article.commentDownload = true;
-      updateRow(article);
-    } else {
-      console.warn(`${url} not found in table data when update commentDownload`);
-    }
-  },
 });
 
 const {
@@ -517,12 +414,8 @@ function copyWechatLink() {
           <ButtonGroup
             :items="[
               { label: '文章内容', event: 'download-article-html' },
-              { label: '阅读量 (需要Credential)', event: 'download-article-metadata' },
-              { label: '留言内容 (需要Credential)', event: 'download-article-comment' },
             ]"
             @download-article-html="download('html', selectedArticleUrls)"
-            @download-article-metadata="download('metadata', selectedArticleUrls)"
-            @download-article-comment="download('comment', selectedArticleUrls)"
           >
             <UButton
               :loading="downloadBtnLoading"

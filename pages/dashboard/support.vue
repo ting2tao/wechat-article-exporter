@@ -7,7 +7,7 @@
       <p class="text-rose-500 text-3xl mb-10 font-medium">
         特别提示：<br />
         本工具不提供付费文章破解服务，请悉知。<br />
-        但可以通过设置 Credentials 获取对应微信号已付费过的文章内容。
+        请仅用于抓取与导出您有权限访问的公众号文章内容。
       </p>
 
       <p class="my-5">

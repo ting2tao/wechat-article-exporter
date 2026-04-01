@@ -10,13 +10,10 @@ const defaultOptions: Partial<Preferences> = {
     dirname: '${title}',
     maxlength: 0,
     exportExcelIncludeContent: true,
-    exportJsonIncludeComments: true,
     exportJsonIncludeContent: true,
-    exportHtmlIncludeComments: true,
   },
   downloadConfig: {
     forceDownloadContent: false,
-    metadataOverrideContent: false,
   },
   accountSyncSeconds: 3,
   syncDateRange: 'all',
