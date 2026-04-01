@@ -3,11 +3,14 @@ import { formatDistance } from 'date-fns';
 import { request } from '#shared/utils/request';
 import LoginModal from '~/components/modal/Login.vue';
 import StorageUsage from '~/components/StorageUsage.vue';
+import toastFactory from '~/composables/toast';
 import { IMAGE_PROXY } from '~/config';
 import type { LogoutResponse } from '~/types/types';
 
 const loginAccount = useLoginAccount();
 const modal = useModal();
+const toast = toastFactory();
+const { authState, logout: logoutAppAuth } = useAppAuth();
 
 const now = ref(new Date());
 const distance = computed(() => {
@@ -76,16 +79,44 @@ function login() {
 }
 
 const logoutBtnLoading = ref(false);
+const appLogoutLoading = ref(false);
 
-async function logout() {
-  logoutBtnLoading.value = true;
-  const { statusCode, statusText } = await request<LogoutResponse>('/api/web/mp/logout');
-  if (statusCode === 200) {
-    loginAccount.value = null;
-  } else {
-    alert(statusText);
+async function logoutMp() {
+  if (logoutBtnLoading.value) {
+    return;
   }
-  logoutBtnLoading.value = false;
+
+  logoutBtnLoading.value = true;
+
+  try {
+    const { statusCode, statusText } = await request<LogoutResponse>('/api/web/mp/logout');
+    if (statusCode !== 200) {
+      alert(statusText);
+      return;
+    }
+  } catch (error) {
+    console.error('退出登录失败:', error);
+  } finally {
+    loginAccount.value = null;
+    logoutBtnLoading.value = false;
+  }
+}
+
+async function logoutApp() {
+  if (appLogoutLoading.value) {
+    return;
+  }
+
+  appLogoutLoading.value = true;
+
+  try {
+    await logoutAppAuth();
+    await navigateTo('/login');
+  } catch (error) {
+    toast.error('退出系统失败', error instanceof Error ? error.message : '请稍后重试');
+  } finally {
+    appLogoutLoading.value = false;
+  }
 }
 
 let timer: number;
@@ -124,8 +155,8 @@ onUnmounted(() => {
           icon="i-heroicons-arrow-left-start-on-rectangle-16-solid"
           :loading="logoutBtnLoading"
           class="bg-slate-10 hover:bg-rose-500 disabled:bg-rose-500"
-          @click="logout"
-          >退出
+          @click="logoutMp"
+          >退出公众号
         </UButton>
       </div>
       <div class="text-sm">
@@ -136,6 +167,24 @@ onUnmounted(() => {
     <div v-else>
       <UButton color="gray" variant="solid" @click="login">登录公众号</UButton>
     </div>
+
+    <div v-if="authState.username" class="border-t dark:border-slate-600 pt-3 space-y-2">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-500">系统账号</span>
+        <span class="font-mono font-medium">{{ authState.username }}</span>
+      </div>
+      <UButton
+        color="gray"
+        variant="outline"
+        icon="i-lucide:log-out"
+        :loading="appLogoutLoading"
+        block
+        @click="logoutApp"
+      >
+        退出系统
+      </UButton>
+    </div>
+
     <StorageUsage />
   </footer>
 </template>

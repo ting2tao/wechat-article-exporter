@@ -187,3 +187,8 @@ export interface LogoutResponse {
   statusCode: number;
   statusText: string;
 }
+
+export interface AppAuthResponse {
+  authenticated: boolean;
+  username: string | null;
+}

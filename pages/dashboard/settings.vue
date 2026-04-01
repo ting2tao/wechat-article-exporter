@@ -9,6 +9,7 @@
       <div class="flex flex-wrap">
         <SettingExport />
         <SettingMisc />
+        <SettingSecurity />
       </div>
       <SettingSchedule />
       <!--      <div>-->

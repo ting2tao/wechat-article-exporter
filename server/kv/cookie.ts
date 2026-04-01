@@ -43,3 +43,13 @@ export async function getMpCookie(key: CookieKVKey): Promise<CookieKVValue | nul
   const kv = useStorage('kv');
   return await kv.get<CookieKVValue>(`cookie:${key}`);
 }
+
+export async function deleteMpCookie(key: CookieKVKey): Promise<void> {
+  const kv = useStorage('kv');
+
+  try {
+    await kv.removeItem(`cookie:${key}`);
+  } catch (err) {
+    console.error('kv.removeItem call failed:', err);
+  }
+}
