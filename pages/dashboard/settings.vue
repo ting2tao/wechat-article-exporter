@@ -10,6 +10,7 @@
         <SettingExport />
         <SettingMisc />
       </div>
+      <SettingSchedule />
       <!--      <div>-->
       <!--        <SettingDisplay />-->
       <!--      </div>-->
