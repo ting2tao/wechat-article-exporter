@@ -27,7 +27,30 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <p class="text-sm">
-    本地数据库占用约为 <span class="text-rose-500">{{ usage }}</span>
-  </p>
+  <div class="storage-note">
+    <span class="storage-note__label">本地缓存</span>
+    <span class="storage-note__value">{{ usage || '--' }}</span>
+  </div>
 </template>
+
+<style scoped>
+.storage-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #6f5c49;
+  font-size: 0.82rem;
+}
+
+.storage-note__label {
+  letter-spacing: 0.04em;
+}
+
+.storage-note__value {
+  color: #2d241b;
+  font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Cascadia Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+</style>

@@ -7,7 +7,11 @@ interface UrlQuery {
 export default defineEventHandler(async event => {
   let { url } = getQuery<UrlQuery>(event);
 
-  const name = await request('/api/web/misc/accountname?url=' + encodeURIComponent(url));
+  const name = await request('/api/web/misc/accountname?url=' + encodeURIComponent(url), {
+    headers: {
+      Cookie: getHeader(event, 'Cookie') || '',
+    },
+  });
   if (!name) {
     return {
       base_resp: {

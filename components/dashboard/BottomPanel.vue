@@ -131,47 +131,66 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <footer class="flex flex-col space-y-2 pt-3 border-t dark:border-slate-600">
-    <div v-if="loginAccount" class="space-y-3">
-      <div class="flex items-center space-x-2">
-        <img
-          v-if="loginAccount.avatar"
-          :src="IMAGE_PROXY + loginAccount.avatar"
-          alt=""
-          class="rounded-full size-10 ring-1 ring-gray-300"
-        />
-        <UTooltip
-          v-if="loginAccount.nickname"
-          class="flex-1 overflow-hidden"
-          :popper="{ placement: 'top-start', offsetDistance: 16 }"
-        >
-          <template #text>
-            <span>{{ loginAccount.nickname }}</span>
-          </template>
-          <span class="whitespace-nowrap text-ellipsis overflow-hidden">{{ loginAccount.nickname }}</span>
-        </UTooltip>
+  <footer class="workspace-status">
+    <div class="workspace-status__card">
+      <div class="workspace-status__label">公众号会话</div>
 
-        <UButton
-          icon="i-heroicons-arrow-left-start-on-rectangle-16-solid"
-          :loading="logoutBtnLoading"
-          class="bg-slate-10 hover:bg-rose-500 disabled:bg-rose-500"
-          @click="logoutMp"
-          >退出公众号
-        </UButton>
+      <div v-if="loginAccount" class="space-y-3">
+        <div class="flex items-center space-x-3">
+          <div class="workspace-status__avatar">
+            <img
+              v-if="loginAccount.avatar"
+              :src="IMAGE_PROXY + loginAccount.avatar"
+              alt=""
+              class="rounded-full size-11 object-cover"
+            />
+            <span v-else class="workspace-status__avatar-fallback">{{ loginAccount.nickname?.slice(0, 1) || '微' }}</span>
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <UTooltip
+              v-if="loginAccount.nickname"
+              class="flex-1 overflow-hidden"
+              :popper="{ placement: 'top-start', offsetDistance: 16 }"
+            >
+              <template #text>
+                <span>{{ loginAccount.nickname }}</span>
+              </template>
+              <div class="workspace-status__nickname">{{ loginAccount.nickname }}</div>
+            </UTooltip>
+            <div class="workspace-status__hint">扫码登录后可持续同步与抓取内容</div>
+          </div>
+
+          <UButton
+            icon="i-heroicons-arrow-left-start-on-rectangle-16-solid"
+            :loading="logoutBtnLoading"
+            class="workspace-status__button workspace-status__button--ghost"
+            @click="logoutMp"
+          >
+            退出
+          </UButton>
+        </div>
+
+        <div class="workspace-status__meta">
+          <span>剩余有效期</span>
+          <span class="font-mono" :class="warning ? 'text-rose-500' : 'text-emerald-700'">{{ distance }}</span>
+        </div>
       </div>
-      <div class="text-sm">
-        <span>登录信息过期时间还剩: </span>
-        <span class="font-mono" :class="warning ? 'text-rose-500' : 'text-green-500'">{{ distance }}</span>
+
+      <div v-else class="space-y-3">
+        <p class="workspace-status__hint">尚未连接公众号账号，登录后即可同步文章与合集。</p>
+        <div class="workspace-status__avatar workspace-status__avatar--square">
+          <span class="workspace-status__avatar-fallback">微</span>
+        </div>
+        <UButton color="black" class="workspace-status__button" @click="login">登录公众号</UButton>
       </div>
     </div>
-    <div v-else>
-      <UButton color="gray" variant="solid" @click="login">登录公众号</UButton>
-    </div>
 
-    <div v-if="authState.username" class="border-t dark:border-slate-600 pt-3 space-y-2">
-      <div class="flex items-center justify-between text-sm">
-        <span class="text-slate-500">系统账号</span>
-        <span class="font-mono font-medium">{{ authState.username }}</span>
+    <div v-if="authState.username" class="workspace-status__card">
+      <div class="workspace-status__label">系统登录</div>
+      <div class="workspace-status__meta">
+        <span>当前账号</span>
+        <span class="font-mono font-medium text-[#2d241b]">{{ authState.username }}</span>
       </div>
       <UButton
         color="gray"
@@ -179,12 +198,112 @@ onUnmounted(() => {
         icon="i-lucide:log-out"
         :loading="appLogoutLoading"
         block
+        class="workspace-status__button workspace-status__button--outline"
         @click="logoutApp"
       >
         退出系统
       </UButton>
     </div>
 
-    <StorageUsage />
+    <div class="workspace-status__card workspace-status__card--quiet">
+      <StorageUsage />
+    </div>
   </footer>
 </template>
+
+<style scoped>
+.workspace-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.workspace-status__card {
+  border: 1px solid rgba(120, 98, 76, 0.16);
+  border-radius: 1.4rem;
+  padding: 1rem;
+  background: rgba(255, 251, 245, 0.78);
+  box-shadow:
+    0 16px 30px rgba(83, 59, 39, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.workspace-status__card--quiet {
+  padding-block: 0.85rem;
+}
+
+.workspace-status__label {
+  margin-bottom: 0.75rem;
+  color: #7b6652;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.workspace-status__avatar {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(120, 98, 76, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.workspace-status__avatar--square {
+  border-radius: 1rem;
+}
+
+.workspace-status__avatar-fallback {
+  color: #604a37;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.workspace-status__nickname {
+  overflow: hidden;
+  color: #2d241b;
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-status__hint {
+  color: #877362;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.workspace-status__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: #6c5b4c;
+  font-size: 0.83rem;
+}
+
+.workspace-status__button {
+  border-radius: 999px;
+}
+
+.workspace-status__button--ghost {
+  background: #2d241b;
+  color: #f8f3eb;
+}
+
+.workspace-status__button--ghost:hover {
+  background: #473729;
+}
+
+.workspace-status__button--outline {
+  margin-top: 0.75rem;
+  border-color: rgba(120, 98, 76, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+}
+</style>

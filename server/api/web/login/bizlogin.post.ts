@@ -72,6 +72,8 @@ export default defineEventHandler(async event => {
       error?: string;
     }>(`/api/web/mp/info`, {
       headers: {
+        // 服务端内部再次访问 /api/web/* 时，需要透传系统登录 cookie，避免被 app-auth 中间件拦截
+        Cookie: getHeader(event, 'Cookie') || '',
         'X-Auth-Key': authKey,
       },
     });
