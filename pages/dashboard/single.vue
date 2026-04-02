@@ -30,7 +30,7 @@ import type { AppMsgExWithFakeID } from '~/types/types';
 import { createBooleanColumnFilterParams, createDateColumnFilterParams } from '~/utils/grid';
 
 useHead({
-  title: `单篇文章下载 | ${websiteName}`,
+  title: `单篇 | ${websiteName}`,
 });
 
 interface SingleArticleRow {
@@ -493,19 +493,24 @@ async function removeRows() {
 </script>
 
 <template>
-  <div class="h-full">
+  <div class="single-page">
     <Teleport defer to="#title">
-      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">单篇文章下载</h1>
+      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">单篇</h1>
     </Teleport>
 
-    <div class="flex flex-col h-full divide-y divide-gray-200">
-      <!-- 顶部操作区 -->
-      <header class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between px-3 py-3">
-        <div class="flex flex-1 gap-3">
+    <div class="single-page__shell">
+      <header class="single-page__toolbar">
+        <div class="single-page__intro">
+          <p class="single-page__eyebrow">Single article</p>
+          <p class="single-page__summary">直接粘贴文章链接，快速补抓内容、修复 fakeid 并导出单篇结果。</p>
+        </div>
+
+        <div class="single-page__input">
           <UInput v-model="inputUrl" placeholder="请输入公众号文章链接" class="flex-1" @keyup.enter="addArticle" />
           <UButton color="blue" @click="addArticle">添加</UButton>
         </div>
-        <div class="flex items-center gap-3">
+
+        <div class="single-page__actions">
           <ButtonGroup
             :items="[
               { label: '修复fakeid', event: 'fix-fakeid' },
@@ -554,17 +559,87 @@ async function removeRows() {
         </div>
       </header>
 
-      <ag-grid-vue
-        style="width: 100%; height: 100%"
-        :rowData="globalRowData"
-        :columnDefs="columnDefs"
-        :gridOptions="gridOptions"
-        @grid-ready="onGridReady"
-        @filter-changed="onFilterChanged"
-        @selection-changed="onSelectionChanged"
-      />
+      <div class="single-page__grid">
+        <ag-grid-vue
+          style="width: 100%; height: 100%"
+          :rowData="globalRowData"
+          :columnDefs="columnDefs"
+          :gridOptions="gridOptions"
+          @grid-ready="onGridReady"
+          @filter-changed="onFilterChanged"
+          @selection-changed="onSelectionChanged"
+        />
+      </div>
     </div>
 
     <PreviewArticle ref="previewArticleRef" />
   </div>
 </template>
+
+<style scoped>
+.single-page {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.single-page__shell {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.single-page__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.single-page__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.single-page__eyebrow {
+  color: rgba(15, 23, 42, 0.45);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.single-page__summary {
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.single-page__input,
+.single-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.single-page__input :deep(.flex-1) {
+  min-width: 16rem;
+}
+
+.single-page__grid {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 1rem;
+}
+</style>

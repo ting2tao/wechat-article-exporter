@@ -1,21 +1,24 @@
 <template>
-  <UCard class="mx-4 mt-10 flex-1">
+  <UCard class="setting-card">
     <template #header>
-      <h3 class="text-2xl font-semibold">后台定时任务</h3>
-      <p class="text-sm text-slate-10 font-serif">运行在 ECS 服务端，浏览器关闭后任务仍会按计划继续执行</p>
+      <div class="setting-card__header">
+        <p class="setting-card__eyebrow">Automation</p>
+        <h3 class="setting-card__title">后台定时任务</h3>
+        <p class="setting-card__summary">运行在 ECS 服务端，浏览器关闭后任务仍会按计划继续执行。</p>
+      </div>
     </template>
 
-    <div class="space-y-6">
+    <div class="setting-card__stack">
       <UAlert color="sky" variant="soft" title="当前能力">
         <template #description>
           当前已支持服务端定时同步公众号文章列表，并自动下载未抓取的文章 HTML。配置企业微信 webhook 后，公众号登录态失效、同步结果和下载结果会自动推送告警或通知。
         </template>
       </UAlert>
 
-      <div class="rounded-lg border border-slate-200 p-4 space-y-4">
+      <div class="setting-card__panel">
         <div>
-          <p class="text-lg font-medium">消息通知</p>
-          <p class="text-sm text-slate-500">留空则不推送。推荐填写企业微信机器人 webhook 地址。</p>
+          <p class="setting-card__panel-title">消息通知</p>
+          <p class="setting-card__panel-summary">留空则不推送。推荐填写企业微信机器人 webhook 地址。</p>
         </div>
 
         <UInput
@@ -31,26 +34,26 @@
         </div>
       </div>
 
-      <div class="grid gap-4 xl:grid-cols-3">
-        <div class="rounded-lg border border-slate-200 p-4 space-y-2">
-          <p class="text-sm text-slate-500">托管公众号</p>
-          <p class="text-3xl font-semibold">{{ snapshot?.stats.trackedAccounts ?? 0 }}</p>
+      <div class="setting-card__stats">
+        <div class="setting-card__stat">
+          <p class="setting-card__stat-label">托管公众号</p>
+          <p class="setting-card__stat-value">{{ snapshot?.stats.trackedAccounts ?? 0 }}</p>
         </div>
-        <div class="rounded-lg border border-slate-200 p-4 space-y-2">
-          <p class="text-sm text-slate-500">服务端文章数</p>
-          <p class="text-3xl font-semibold">{{ snapshot?.stats.trackedArticles ?? 0 }}</p>
+        <div class="setting-card__stat">
+          <p class="setting-card__stat-label">服务端文章数</p>
+          <p class="setting-card__stat-value">{{ snapshot?.stats.trackedArticles ?? 0 }}</p>
         </div>
-        <div class="rounded-lg border border-slate-200 p-4 space-y-2">
-          <p class="text-sm text-slate-500">已下载 HTML</p>
-          <p class="text-3xl font-semibold">{{ snapshot?.stats.downloadedHtmlArticles ?? 0 }}</p>
+        <div class="setting-card__stat">
+          <p class="setting-card__stat-label">已下载 HTML</p>
+          <p class="setting-card__stat-value">{{ snapshot?.stats.downloadedHtmlArticles ?? 0 }}</p>
         </div>
       </div>
 
-      <div class="rounded-lg border border-slate-200 p-4 space-y-4">
+      <div class="setting-card__panel">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-lg font-medium">公众号同步</p>
-            <p class="text-sm text-slate-500">首次会全量同步历史文章，后续按增量周期同步</p>
+            <p class="setting-card__panel-title">公众号同步</p>
+            <p class="setting-card__panel-summary">首次会全量同步历史文章，后续按增量周期同步。</p>
           </div>
           <UCheckbox v-model="form.syncEnabled" label="启用" />
         </div>
@@ -83,11 +86,11 @@
         </div>
       </div>
 
-      <div class="rounded-lg border border-slate-200 p-4 space-y-4">
+      <div class="setting-card__panel">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-lg font-medium">HTML 下载</p>
-            <p class="text-sm text-slate-500">按批次补齐服务端尚未下载的文章 HTML 内容</p>
+            <p class="setting-card__panel-title">HTML 下载</p>
+            <p class="setting-card__panel-summary">按批次补齐服务端尚未下载的文章 HTML 内容。</p>
           </div>
           <UCheckbox v-model="form.downloadEnabled" label="启用" />
         </div>
@@ -236,3 +239,91 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+.setting-card {
+  margin: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+}
+
+.setting-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.setting-card__eyebrow {
+  color: rgba(15, 23, 42, 0.44);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__title {
+  color: #111111;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.setting-card__summary {
+  color: rgba(15, 23, 42, 0.66);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.setting-card__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.setting-card__panel,
+.setting-card__stat {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1.25rem;
+  padding: 1rem;
+  background: rgba(247, 246, 241, 0.82);
+}
+
+.setting-card__panel-title {
+  color: #111111;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.setting-card__panel-summary {
+  margin-top: 0.2rem;
+  color: rgba(15, 23, 42, 0.56);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.setting-card__stats {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.setting-card__stat-label {
+  color: rgba(15, 23, 42, 0.5);
+  font-size: 0.8rem;
+}
+
+.setting-card__stat-value {
+  margin-top: 0.35rem;
+  color: #111111;
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+@media (min-width: 900px) {
+  .setting-card__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+</style>

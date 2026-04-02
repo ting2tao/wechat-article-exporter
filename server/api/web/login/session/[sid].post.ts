@@ -22,6 +22,8 @@ export default defineEventHandler(async event => {
       action: 'startlogin',
     },
     body: body,
+    // 新建扫码登录会话时必须从干净上下文开始，不能混入旧公众号 cookie
+    cookie: '',
     action: 'start_login', // 有这个标志就会把微信原始响应中的 uuid 这个 set-cookie 传递给客户端，以便后续扫码登录用
   });
 });

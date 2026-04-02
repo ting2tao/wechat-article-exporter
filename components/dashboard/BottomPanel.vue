@@ -7,6 +7,15 @@ import toastFactory from '~/composables/toast';
 import { IMAGE_PROXY } from '~/config';
 import type { LogoutResponse } from '~/types/types';
 
+const props = withDefaults(
+  defineProps<{
+    compact?: boolean;
+  }>(),
+  {
+    compact: false,
+  }
+);
+
 const loginAccount = useLoginAccount();
 const modal = useModal();
 const toast = toastFactory();
@@ -131,7 +140,48 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <footer class="workspace-status">
+  <div v-if="props.compact" class="workspace-top-status">
+    <div class="workspace-top-status__item">
+      <template v-if="loginAccount">
+        <div class="workspace-top-status__account">
+          <div class="workspace-top-status__avatar">
+            <img v-if="loginAccount.avatar" :src="IMAGE_PROXY + loginAccount.avatar" alt="" class="size-7 rounded-full object-cover" />
+            <span v-else class="workspace-top-status__avatar-fallback">{{ loginAccount.nickname?.slice(0, 1) || '微' }}</span>
+          </div>
+          <div class="workspace-top-status__meta">
+            <span class="workspace-top-status__name">{{ loginAccount.nickname || '公众号已登录' }}</span>
+            <span class="workspace-top-status__subtle" :class="warning ? 'text-rose-500' : ''">{{ distance }}</span>
+          </div>
+        </div>
+        <UButton
+          icon="i-heroicons-arrow-left-start-on-rectangle-16-solid"
+          :loading="logoutBtnLoading"
+          color="gray"
+          variant="ghost"
+          square
+          @click="logoutMp"
+        />
+      </template>
+      <template v-else>
+        <span class="workspace-top-status__subtle">公众号未登录</span>
+        <UButton color="black" size="xs" class="workspace-top-status__login-button" @click="login">登录公众号</UButton>
+      </template>
+    </div>
+
+    <div v-if="authState.username" class="workspace-top-status__item">
+      <div class="workspace-top-status__meta">
+        <span class="workspace-top-status__name">{{ authState.username }}</span>
+        <span class="workspace-top-status__subtle">系统已登录</span>
+      </div>
+      <UButton icon="i-lucide:log-out" :loading="appLogoutLoading" color="gray" variant="ghost" square @click="logoutApp" />
+    </div>
+
+    <div class="workspace-top-status__storage">
+      <StorageUsage />
+    </div>
+  </div>
+
+  <footer v-else class="workspace-status">
     <div class="workspace-status__card">
       <div class="workspace-status__label">公众号会话</div>
 
@@ -212,6 +262,80 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.workspace-top-status {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.workspace-top-status__item,
+.workspace-top-status__storage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.65rem;
+  max-width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 0.35rem 0.45rem 0.35rem 0.7rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.workspace-top-status__account {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.workspace-top-status__avatar {
+  display: flex;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.workspace-top-status__avatar-fallback {
+  color: #111827;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.workspace-top-status__meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.02rem;
+}
+
+.workspace-top-status__name {
+  overflow: hidden;
+  color: #111827;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-top-status__subtle {
+  color: rgba(15, 23, 42, 0.5);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.workspace-top-status__login-button {
+  white-space: nowrap;
+}
+
 .workspace-status {
   display: flex;
   flex-direction: column;
@@ -219,13 +343,11 @@ onUnmounted(() => {
 }
 
 .workspace-status__card {
-  border: 1px solid rgba(120, 98, 76, 0.16);
-  border-radius: 1.4rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
   padding: 1rem;
-  background: rgba(255, 251, 245, 0.78);
-  box-shadow:
-    0 16px 30px rgba(83, 59, 39, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
 }
 
 .workspace-status__card--quiet {
@@ -234,11 +356,12 @@ onUnmounted(() => {
 
 .workspace-status__label {
   margin-bottom: 0.75rem;
-  color: #7b6652;
+  color: rgba(15, 23, 42, 0.42);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'JetBrains Mono', monospace;
 }
 
 .workspace-status__avatar {
@@ -249,9 +372,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid rgba(120, 98, 76, 0.14);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(15, 23, 42, 0.05);
 }
 
 .workspace-status__avatar--square {
@@ -259,14 +382,14 @@ onUnmounted(() => {
 }
 
 .workspace-status__avatar-fallback {
-  color: #604a37;
+  color: #111827;
   font-size: 1rem;
   font-weight: 700;
 }
 
 .workspace-status__nickname {
   overflow: hidden;
-  color: #2d241b;
+  color: #111827;
   font-size: 0.98rem;
   font-weight: 700;
   text-overflow: ellipsis;
@@ -274,7 +397,7 @@ onUnmounted(() => {
 }
 
 .workspace-status__hint {
-  color: #877362;
+  color: rgba(15, 23, 42, 0.52);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -284,7 +407,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
-  color: #6c5b4c;
+  color: rgba(15, 23, 42, 0.58);
   font-size: 0.83rem;
 }
 
@@ -293,17 +416,32 @@ onUnmounted(() => {
 }
 
 .workspace-status__button--ghost {
-  background: #2d241b;
-  color: #f8f3eb;
+  background: rgba(15, 23, 42, 0.04);
+  color: #111111;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .workspace-status__button--ghost:hover {
-  background: #473729;
+  background: rgba(15, 23, 42, 0.08);
 }
 
 .workspace-status__button--outline {
   margin-top: 0.75rem;
-  border-color: rgba(120, 98, 76, 0.18);
-  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+@media (max-width: 880px) {
+  .workspace-top-status {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .workspace-top-status__item,
+  .workspace-top-status__storage {
+    width: 100%;
+    justify-content: space-between;
+    border-radius: 0.95rem;
+  }
 }
 </style>

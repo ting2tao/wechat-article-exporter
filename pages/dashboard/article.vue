@@ -32,7 +32,7 @@ import type { AppMsgExWithFakeID } from '~/types/types';
 import { createBooleanColumnFilterParams, createDateColumnFilterParams } from '~/utils/grid';
 
 useHead({
-  title: `文章下载 | ${websiteName}`,
+  title: `文章 | ${websiteName}`,
 });
 
 // 当前页面的数据模型
@@ -399,20 +399,23 @@ function copyWechatLink() {
 </script>
 
 <template>
-  <div class="h-full">
+  <div class="article-page">
     <Teleport defer to="#title">
-      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">文章下载</h1>
+      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">文章</h1>
     </Teleport>
 
-    <div class="flex flex-col h-full divide-y divide-gray-200">
-      <!-- 顶部筛选与操作区 -->
-      <header class="flex flex-col items-start lg:flex-row lg:items-center lg:justify-between gap-2 px-3 py-2">
-        <div class="flex flex-col xl:flex-row gap-2">
-          <div class="flex space-x-3">
-            <AccountSelectorForArticle v-model="selectedAccount" class="w-80" />
-          </div>
+    <div class="article-page__shell">
+      <header class="article-page__toolbar">
+        <div class="article-page__intro">
+          <p class="article-page__eyebrow">Article workspace</p>
+          <p class="article-page__summary">按公众号切换文章列表，然后抓取正文、校验缓存并导出目标格式。</p>
         </div>
-        <div class="flex items-center space-x-2">
+
+        <div class="article-page__controls">
+          <AccountSelectorForArticle v-model="selectedAccount" class="article-page__selector w-80" />
+        </div>
+
+        <div class="article-page__actions">
           <UButton v-if="downloadBtnLoading" color="black" @click="stopDownload">停止</UButton>
           <ButtonGroup
             :items="[
@@ -468,22 +471,88 @@ function copyWechatLink() {
         </div>
       </header>
 
-      <ag-grid-vue
-        style="width: 100%; height: 100%"
-        :loading="loading"
-        :rowData="globalRowData"
-        :columnDefs="columnDefs"
-        :gridOptions="gridOptions"
-        @grid-ready="onGridReady"
-        @filter-changed="onFilterChanged"
-        @column-moved="onColumnStateChange"
-        @column-visible="onColumnStateChange"
-        @column-pinned="onColumnStateChange"
-        @column-resized="onColumnStateChange"
-        @selection-changed="onSelectionChanged"
-      ></ag-grid-vue>
+      <div class="article-page__grid">
+        <ag-grid-vue
+          style="width: 100%; height: 100%"
+          :loading="loading"
+          :rowData="globalRowData"
+          :columnDefs="columnDefs"
+          :gridOptions="gridOptions"
+          @grid-ready="onGridReady"
+          @filter-changed="onFilterChanged"
+          @column-moved="onColumnStateChange"
+          @column-visible="onColumnStateChange"
+          @column-pinned="onColumnStateChange"
+          @column-resized="onColumnStateChange"
+          @selection-changed="onSelectionChanged"
+        ></ag-grid-vue>
+      </div>
     </div>
 
     <PreviewArticle ref="previewArticleRef" />
   </div>
 </template>
+
+<style scoped>
+.article-page {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.article-page__shell {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.article-page__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.article-page__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.article-page__eyebrow {
+  color: rgba(15, 23, 42, 0.45);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.article-page__summary {
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.article-page__controls,
+.article-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.article-page__grid {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 1rem;
+}
+</style>

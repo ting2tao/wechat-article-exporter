@@ -1,14 +1,18 @@
 <template>
-  <div class="h-full">
+  <div class="album-page">
     <Teleport defer to="#title">
-      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">合集下载</h1>
+      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">合集</h1>
     </Teleport>
 
-    <div class="flex flex-col h-full divide-y divide-gray-200">
-      <!-- 顶部筛选与操作区 -->
-      <header class="flex flex-col items-start xl:flex-row xl:items-center gap-2 xl:justify-between px-3 py-2">
-        <div class="flex gap-2">
-          <div class="flex items-center space-x-3">
+    <div class="album-page__shell">
+      <header class="album-page__toolbar">
+        <div class="album-page__intro">
+          <p class="album-page__eyebrow">Album workspace</p>
+          <p class="album-page__summary">选择公众号与合集，快速拉取全部链接，再按合集打包下载。</p>
+        </div>
+
+        <div class="album-page__controls">
+          <div class="album-page__selectors">
             <AccountSelectorForAlbum v-model="selectedAccount" class="w-80" />
             <USelectMenu
               class="w-60"
@@ -19,9 +23,9 @@
               size="md"
               placeholder="选择合集"
             />
-            <div>
+            <div class="album-page__sort" @click="toggleReverse">
               <Loader v-if="switchSortLoading" :size="24" class="animate-spin text-slate-500" />
-              <div v-else class="flex space-x-2 w-fit" @click="toggleReverse">
+              <div v-else class="flex space-x-2 w-fit">
                 <ArrowUpNarrowWide v-if="isReverse" />
                 <ArrowDownNarrowWide v-else />
                 <span>{{ isReverse ? '正序' : '倒序' }}</span>
@@ -38,7 +42,7 @@
             >
           </div>
         </div>
-        <div class="flex items-center space-x-2">
+        <div class="album-page__actions">
           <UButton
             color="blue"
             variant="link"
@@ -68,17 +72,15 @@
         </div>
       </header>
 
-      <!-- 合集文章列表 -->
-      <main class="flex-1 overflow-y-scroll bg-[#ededed]" v-if="selectedAccount && selectedAlbum">
+      <main class="album-page__content" v-if="selectedAccount && selectedAlbum">
         <div v-if="albumLoading" class="flex justify-center items-center mt-5">
           <Loader :size="28" class="animate-spin text-slate-500" />
         </div>
-        <div v-else-if="albumBaseInfo" class="relative max-w-2xl mx-auto bg-white">
-          <!-- banner -->
+        <div v-else-if="albumBaseInfo" class="album-page__feed">
           <div class="px-5 py-7 banner">
             <h2 class="text-2xl text-white font-bold"># {{ albumBaseInfo.title }}</h2>
           </div>
-          <div class="sticky top-0 px-5 py-3 bg-white border-b">
+          <div class="sticky top-0 px-5 py-3 bg-white/96 border-b backdrop-blur-sm">
             <p class="flex items-center space-x-2 mb-2">
               <img class="size-5" :src="albumBaseInfo.brand_icon" alt="" />
               <span>{{ albumBaseInfo.nickname }}</span>
@@ -135,7 +137,7 @@ import { gotoLink } from '~/utils';
 import { formatAlbumTime } from '~/utils/album';
 
 useHead({
-  title: `合集下载 | ${websiteName}`,
+  title: `合集 | ${websiteName}`,
 });
 
 interface AccountInfo extends MpAccount {
@@ -317,6 +319,90 @@ async function fetchAllArticles() {
 </script>
 
 <style scoped>
+.album-page {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.album-page__shell {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.album-page__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.album-page__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.album-page__eyebrow {
+  color: rgba(15, 23, 42, 0.45);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.album-page__summary {
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.album-page__controls,
+.album-page__actions,
+.album-page__selectors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.album-page__sort {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  cursor: pointer;
+}
+
+.album-page__content {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 1rem;
+  background: rgba(244, 245, 247, 0.9);
+}
+
+.album-page__feed {
+  position: relative;
+  max-width: 42rem;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
 .banner {
   background: linear-gradient(rgb(9, 9, 9), rgb(35, 35, 35));
 }

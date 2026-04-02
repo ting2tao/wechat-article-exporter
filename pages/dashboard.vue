@@ -1,24 +1,24 @@
 <template>
   <div class="workspace-shell">
-    <div class="workspace-shell__glow workspace-shell__glow--left"></div>
-    <div class="workspace-shell__glow workspace-shell__glow--right"></div>
-
     <div class="workspace-layout">
       <SideBar />
 
       <div class="workspace-main">
-        <div class="workspace-mobile-nav">
-          <NavMenus compact />
-        </div>
-
         <header class="workspace-header">
-          <p class="workspace-eyebrow">WeChat Archive Desk</p>
-          <div id="title" class="workspace-title"></div>
-          <p class="workspace-copy">只保留抓取、整理与导出的主路径，让工作台更安静，也更顺手。</p>
+          <div class="workspace-header__intro">
+            <p class="workspace-eyebrow">Workspace</p>
+            <p class="workspace-kicker">公众号内容采集、整理与导出</p>
+          </div>
+          <div class="workspace-header__main">
+            <div id="title" class="workspace-title"></div>
+            <BottomPanel compact />
+          </div>
         </header>
 
-        <div class="workspace-stage">
-          <NuxtPage />
+        <div class="workspace-stage" :class="{ 'workspace-stage--scrollable': isSettingsPage }">
+          <div class="workspace-stage__page" :class="{ 'workspace-stage__page--scrollable': isSettingsPage }">
+            <NuxtPage />
+          </div>
         </div>
       </div>
     </div>
@@ -26,47 +26,24 @@
 </template>
 
 <script setup lang="ts">
-import NavMenus from '~/components/dashboard/NavMenus.vue';
+import BottomPanel from '~/components/dashboard/BottomPanel.vue';
 import SideBar from '~/components/dashboard/SideBar.vue';
+
+const route = useRoute();
+const isSettingsPage = computed(() => route.path === '/dashboard/settings');
 </script>
 
 <style scoped>
 .workspace-shell {
-  position: relative;
   min-height: 100vh;
-  overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(245, 208, 92, 0.18), transparent 26%),
-    radial-gradient(circle at top right, rgba(125, 92, 61, 0.12), transparent 28%),
-    linear-gradient(180deg, #f8f4ec 0%, #f3eee5 48%, #efe7db 100%);
-}
-
-.workspace-shell__glow {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(80px);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.workspace-shell__glow--left {
-  top: -5rem;
-  left: -4rem;
-  width: 16rem;
-  height: 16rem;
-  background: rgba(114, 92, 73, 0.14);
-}
-
-.workspace-shell__glow--right {
-  right: -6rem;
-  bottom: 10%;
-  width: 18rem;
-  height: 18rem;
-  background: rgba(222, 173, 108, 0.2);
+    radial-gradient(circle at top left, rgba(191, 219, 254, 0.28), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.12), transparent 30%),
+    linear-gradient(180deg, #f6f5f1 0%, #f1f2f4 100%);
+  color: #111827;
 }
 
 .workspace-layout {
-  position: relative;
   display: flex;
   min-height: 100vh;
 }
@@ -74,95 +51,136 @@ import SideBar from '~/components/dashboard/SideBar.vue';
 .workspace-main {
   display: flex;
   min-width: 0;
+  min-height: 100vh;
   flex: 1;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.workspace-mobile-nav {
-  display: block;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 0;
 }
 
 .workspace-header {
   position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(120, 98, 76, 0.16);
-  border-radius: 1.75rem;
-  padding: 1.15rem 1.35rem 1.25rem;
-  background: rgba(255, 252, 246, 0.82);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1.3rem;
+  padding: 0.9rem 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 246, 241, 0.92) 100%);
   box-shadow:
-    0 28px 60px rgba(83, 59, 39, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(18px);
+    0 14px 30px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  overflow: hidden;
 }
 
 .workspace-header::after {
-  content: '';
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(130deg, rgba(255, 255, 255, 0.45), transparent 40%),
-    repeating-linear-gradient(
-      90deg,
-      rgba(120, 98, 76, 0.03) 0,
-      rgba(120, 98, 76, 0.03) 1px,
-      transparent 1px,
-      transparent 12px
-    );
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 1rem 1rem;
+  opacity: 0.4;
   pointer-events: none;
+  content: '';
+}
+
+.workspace-header__intro {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  max-width: 22rem;
 }
 
 .workspace-eyebrow {
-  position: relative;
-  margin-bottom: 0.55rem;
-  color: #7c6650;
+  color: rgba(15, 23, 42, 0.42);
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.26em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.workspace-kicker {
+  color: rgba(15, 23, 42, 0.68);
+  font-size: 0.94rem;
+  line-height: 1.5;
 }
 
 .workspace-title {
-  position: relative;
-  z-index: 1;
+  color: #111111;
 }
 
-.workspace-copy {
+.workspace-header__main {
   position: relative;
   z-index: 1;
-  margin-top: 0.55rem;
-  max-width: 44rem;
-  color: #6c5b4c;
-  font-size: 0.92rem;
-  line-height: 1.6;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.workspace-title :deep(h1) {
+  color: #111111 !important;
+  font-family: 'Segoe UI Variable Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: clamp(1.6rem, 1.8vw, 2rem);
+  letter-spacing: -0.03em;
 }
 
 .workspace-stage {
+  display: flex;
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border: 1px solid rgba(120, 98, 76, 0.12);
-  border-radius: 1.75rem;
-  background: rgba(255, 253, 249, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 246, 241, 0.92) 100%);
   box-shadow:
-    0 24px 50px rgba(89, 63, 44, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(14px);
+    0 20px 44px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.workspace-stage__page {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.workspace-stage--scrollable,
+.workspace-stage__page--scrollable {
+  overflow-y: auto;
 }
 
 @media (min-width: 1024px) {
   .workspace-main {
-    gap: 1.25rem;
-    padding: 1.25rem;
-  }
-
-  .workspace-mobile-nav {
-    display: none;
+    gap: 0.9rem;
+    padding: 0.9rem 0.9rem 0.9rem 0;
   }
 
   .workspace-header {
-    padding: 1.35rem 1.6rem 1.45rem;
+    padding: 1rem 1.15rem;
+  }
+}
+
+@media (max-width: 880px) {
+  .workspace-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .workspace-header__main {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

@@ -287,11 +287,13 @@ export async function getTokenFromStore(event: H3Event): Promise<string | null> 
  * @description 用于登录过程中 uuid cookie 透传给微信
  * @param event
  */
-export function getCookiesFromRequest(event: H3Event): string {
+export function getCookiesFromRequest(event: H3Event, names?: string[]): string {
   const cookies = parseCookies(event);
-  return Object.keys(cookies)
-    .map(key => `${key}=${encodeURIComponent(cookies[key])}`)
-    .join(';');
+
+  const cookieNames =
+    names && names.length > 0 ? names.filter(name => cookies[name] !== undefined) : Object.keys(cookies);
+
+  return cookieNames.map(key => `${key}=${encodeURIComponent(cookies[key])}`).join(';');
 }
 
 /**

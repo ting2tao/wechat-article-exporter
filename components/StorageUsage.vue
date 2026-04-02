@@ -39,7 +39,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  color: #6f5c49;
+  color: rgba(15, 23, 42, 0.48);
   font-size: 0.82rem;
 }
 
@@ -48,7 +48,7 @@ onUnmounted(() => {
 }
 
 .storage-note__value {
-  color: #2d241b;
+  color: #111827;
   font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Cascadia Mono', monospace;
   font-size: 0.82rem;
   font-weight: 600;

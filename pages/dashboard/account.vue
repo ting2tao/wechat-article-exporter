@@ -32,7 +32,7 @@ import { exportAccountJsonFile } from '~/utils/exporter';
 import { createBooleanColumnFilterParams, createDateColumnFilterParams } from '~/utils/grid';
 
 useHead({
-  title: `公众号管理 | ${websiteName}`,
+  title: `账号 | ${websiteName}`,
 });
 
 interface PromiseInstance {
@@ -493,15 +493,20 @@ const { getActualDateRange } = useSyncDeadline();
 </script>
 
 <template>
-  <div class="h-full">
+  <div class="account-page">
     <Teleport defer to="#title">
-      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">公众号管理</h1>
+      <h1 class="text-[28px] leading-[34px] text-slate-12 dark:text-slate-50 font-bold">账号</h1>
     </Teleport>
 
-    <div class="flex flex-col h-full divide-y divide-gray-200">
-      <!-- 顶部操作区 -->
-      <header class="flex items-stretch gap-3 px-3 py-3">
-        <UButton icon="i-lucide:user-plus" color="blue" :disabled="isDeleting || addBtnLoading" @click="addAccount">
+    <div class="account-page__shell">
+      <header class="account-page__toolbar">
+        <div class="account-page__intro">
+          <p class="account-page__eyebrow">Account workspace</p>
+          <p class="account-page__summary">管理待同步公众号，控制导入、清理与批量同步的主入口。</p>
+        </div>
+
+        <div class="account-page__actions">
+          <UButton icon="i-lucide:user-plus" color="blue" :disabled="isDeleting || addBtnLoading" @click="addAccount">
           {{ addBtnLoading ? '添加中...' : '添加' }}
         </UButton>
         <UButton icon="i-lucide:arrow-down-to-line" color="blue" :loading="importBtnLoading" @click="importAccount">
@@ -535,27 +540,126 @@ const { getActualDateRange } = useSyncDeadline();
           @click="loadSelectedAccountArticle"
           >同步</UButton
         >
-        <div class="hidden xl:flex flex-1 justify-end">
-          <span class="self-end text-sm text-blue-500 font-medium">同步范围: {{ getActualDateRange() }}</span>
         </div>
       </header>
 
-      <!-- 数据表格 -->
-      <ag-grid-vue
-        style="width: 100%; height: 100%"
-        :rowData="globalRowData"
-        :columnDefs="columnDefs"
-        :gridOptions="gridOptions"
-        @grid-ready="onGridReady"
-        @selection-changed="onSelectionChanged"
-        @column-moved="onColumnStateChange"
-        @column-visible="onColumnStateChange"
-        @column-pinned="onColumnStateChange"
-        @column-resized="onColumnStateChange"
-      ></ag-grid-vue>
+      <div class="account-page__meta">
+        <span class="account-page__meta-label">同步范围</span>
+        <span class="account-page__meta-value">{{ getActualDateRange() }}</span>
+      </div>
+
+      <div class="account-page__grid">
+        <ag-grid-vue
+          style="width: 100%; height: 100%"
+          :rowData="globalRowData"
+          :columnDefs="columnDefs"
+          :gridOptions="gridOptions"
+          @grid-ready="onGridReady"
+          @selection-changed="onSelectionChanged"
+          @column-moved="onColumnStateChange"
+          @column-visible="onColumnStateChange"
+          @column-pinned="onColumnStateChange"
+          @column-resized="onColumnStateChange"
+        ></ag-grid-vue>
+      </div>
     </div>
 
-    <!-- 添加公众号弹框 -->
     <GlobalSearchAccountDialog ref="searchAccountDialogRef" @select:account="onSelectAccount" />
   </div>
 </template>
+
+<style scoped>
+.account-page {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.account-page__shell {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.account-page__toolbar,
+.account-page__meta {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.account-page__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.95rem 1rem;
+}
+
+.account-page__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.account-page__eyebrow {
+  color: rgba(15, 23, 42, 0.45);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.account-page__summary {
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.account-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.account-page__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+}
+
+.account-page__meta-label {
+  color: rgba(15, 23, 42, 0.45);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.account-page__meta-value {
+  color: #111111;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.account-page__grid {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .account-page__toolbar {
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+</style>

@@ -1,12 +1,16 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-10-30',
+  experimental: {
+    appManifest: false,
+  },
   devtools: {
     enabled: false,
   },
   modules: ['@vueuse/nuxt', '@nuxt/ui', 'nuxt-monaco-editor', '@sentry/nuxt/module', 'nuxt-umami'],
   ssr: false,
   runtimeConfig: {
+    allowInsecureMpTls: process.env.NUXT_MP_ALLOW_INSECURE_TLS === 'true',
     public: {
       aggridLicense: process.env.NUXT_AGGRID_LICENSE,
       sentry: {

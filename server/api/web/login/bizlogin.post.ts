@@ -30,7 +30,7 @@ async function extractLoginError(response: Response): Promise<string | null> {
 }
 
 export default defineEventHandler(async event => {
-  const cookie = getCookiesFromRequest(event);
+  const cookie = getCookiesFromRequest(event, ['uuid']);
 
   const payload: Record<string, string | number> = {
     userlang: 'zh_CN',

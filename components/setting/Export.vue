@@ -1,25 +1,28 @@
 <template>
-  <UCard class="mx-4 mt-10 flex-1">
+  <UCard class="setting-card">
     <template #header>
-      <h3 class="text-2xl font-semibold">导出选项</h3>
-      <p class="text-sm text-slate-10 font-serif">配置文章的导出选项</p>
+      <div class="setting-card__header">
+        <p class="setting-card__eyebrow">Export</p>
+        <h3 class="setting-card__title">导出选项</h3>
+        <p class="setting-card__summary">统一配置目录命名、内容包含范围和导出产物的默认行为。</p>
+      </div>
     </template>
 
-    <div class="flex flex-col space-y-5">
-      <div>
-        <p class="mb-2">
-          <span class="mr-3">导出目录名:</span>
+    <div class="setting-card__stack">
+      <section class="setting-card__section">
+        <p class="setting-card__label">
+          <span>导出目录名</span>
           <span class="inline-block w-8">
             <UPopover mode="hover" :popper="{ placement: 'right' }">
               <UButton color="white" size="sm" trailing-icon="i-heroicons:variable-16-solid" />
 
               <template #panel>
-                <div class="p-4">
-                  <p class="my-2 text-sm text-gray-500">
-                    使用 <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono text-xs">${变量名}</code> 的格式插入变量，例如：<code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono text-xs">${YYYY}-${MM}-${DD}_${title}</code>
+                <div class="setting-card__popover">
+                  <p class="setting-card__popover-text">
+                    使用 <code>${变量名}</code> 的格式插入变量，例如：<code>${YYYY}-${MM}-${DD}_${title}</code>
                   </p>
-                  <p class="my-2 font-medium">支持的变量：</p>
-                  <table class="w-full border-collapse border">
+                  <p class="setting-card__popover-title">支持的变量</p>
+                  <table class="setting-card__table">
                     <tbody>
                       <tr>
                         <th class="w-20">变量</th>
@@ -40,45 +43,52 @@
             </UPopover>
           </span>
         </p>
-        <p class="text-sm mb-2 text-gray-500">影响 <span class="font-mono">html/txt/markdown/word/pdf</span> 的导出</p>
+
+        <p class="setting-card__hint">影响 <span class="font-mono">html/txt/markdown/word/pdf</span> 的导出</p>
+
         <UInput
-          placeholder="目录名格式"
-          class="w-[600px] font-mono"
-          name="dirname"
           v-model="preferences.exportConfig.dirname"
+          class="setting-card__input setting-card__input--mono"
+          name="dirname"
+          placeholder="目录名格式"
         />
-        <p class="mt-2 text-sm text-gray-500">
+
+        <p class="setting-card__preview">
           <span class="mr-1">预览:</span>
-          <span class="font-mono text-gray-700 dark:text-gray-300">{{ dirnamePreview }}</span>
+          <span>{{ dirnamePreview }}</span>
         </p>
-      </div>
-      <div>
-        <p class="mb-2 flex items-center gap-3">
-          <span>目录名最大长度:</span>
-          <span class="text-xs text-gray-500">(0表示不限制)</span>
+      </section>
+
+      <section class="setting-card__section">
+        <p class="setting-card__label setting-card__label--inline">
+          <span>目录名最大长度</span>
+          <span class="setting-card__hint">(0表示不限制)</span>
           <UInput
-            class=""
-            placeholder="目录名最大长度"
             v-model="preferences.exportConfig.maxlength"
+            class="setting-card__number"
+            placeholder="目录名最大长度"
             type="number"
             min="0"
           />
         </p>
-      </div>
-      <div>
-        <UCheckbox
-          v-model="preferences.exportConfig.exportExcelIncludeContent"
-          name="exportExcelIncludeContent"
-          label="导出 Excel 中包含文章内容"
-        />
-      </div>
-      <div>
-        <UCheckbox
-          v-model="preferences.exportConfig.exportJsonIncludeContent"
-          name="exportJsonIncludeContent"
-          label="导出 JSON 中包含文章内容"
-        />
-      </div>
+      </section>
+
+      <section class="setting-card__toggles">
+        <label class="setting-card__toggle">
+          <UCheckbox
+            v-model="preferences.exportConfig.exportExcelIncludeContent"
+            name="exportExcelIncludeContent"
+            label="导出 Excel 中包含文章内容"
+          />
+        </label>
+        <label class="setting-card__toggle">
+          <UCheckbox
+            v-model="preferences.exportConfig.exportJsonIncludeContent"
+            name="exportJsonIncludeContent"
+            label="导出 JSON 中包含文章内容"
+          />
+        </label>
+      </section>
     </div>
   </UCard>
 </template>
@@ -130,34 +140,164 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
 </script>
 
 <style scoped>
-table th {
-  padding: 0.5rem 0.25rem;
-}
-table td {
-  border: 1px solid #00002d17;
-  padding: 0.25rem 0.5rem;
-}
-
-td:first-child,
-th:first-child {
-  border-left: none;
+.setting-card {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
 }
 
-td:last-child,
-th:last-child {
-  border-right: none;
+.setting-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-th {
-  border: 1px solid #00002d17;
-  border-top: none;
+.setting-card__eyebrow {
+  color: rgba(15, 23, 42, 0.44);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
-tr:nth-child(even) {
-  background-color: #00005506;
+.setting-card__title {
+  color: #111111;
+  font-size: 1.16rem;
+  font-weight: 700;
 }
 
-tr:hover {
-  background-color: #00005506;
+.setting-card__summary {
+  color: rgba(15, 23, 42, 0.66);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.setting-card__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.setting-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.setting-card__label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.setting-card__label--inline {
+  flex-wrap: wrap;
+}
+
+.setting-card__hint {
+  color: rgba(15, 23, 42, 0.52);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.setting-card__input,
+.setting-card__number {
+  width: 100%;
+}
+
+.setting-card__number {
+  max-width: 11rem;
+}
+
+.setting-card__input--mono :deep(input),
+.setting-card__number :deep(input) {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__preview {
+  color: rgba(15, 23, 42, 0.54);
+  font-size: 0.84rem;
+}
+
+.setting-card__preview span:last-child {
+  color: #111111;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__toggles {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.setting-card__toggle {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1.15rem;
+  padding: 0.85rem 0.9rem;
+  background: rgba(247, 246, 241, 0.86);
+}
+
+.setting-card__popover {
+  max-width: 34rem;
+  padding: 1rem;
+}
+
+.setting-card__popover-title {
+  margin: 0.8rem 0 0.45rem;
+  color: #111111;
+  font-weight: 600;
+}
+
+.setting-card__popover-text {
+  color: rgba(15, 23, 42, 0.62);
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.setting-card__popover code {
+  border-radius: 0.55rem;
+  padding: 0.15rem 0.35rem;
+  background: rgba(15, 23, 42, 0.06);
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 0.76rem;
+}
+
+.setting-card__table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.95rem;
+}
+
+.setting-card__table th {
+  background: rgba(247, 246, 241, 0.92);
+  color: rgba(15, 23, 42, 0.64);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.55rem 0.35rem;
+}
+
+.setting-card__table td {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 0.45rem 0.55rem;
+  color: rgba(15, 23, 42, 0.72);
+  font-size: 0.82rem;
+}
+
+.setting-card__table tr:nth-child(even) {
+  background: rgba(247, 246, 241, 0.72);
+}
+
+@media (min-width: 900px) {
+  .setting-card__toggles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

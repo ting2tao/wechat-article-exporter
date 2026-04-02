@@ -100,15 +100,16 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
 </script>
 
 <template>
-  <UCard class="mx-4 mt-10 flex-1 min-w-[360px]">
+  <UCard class="setting-card">
     <template #header>
-      <div class="space-y-1">
-        <h3 class="text-2xl font-semibold">系统账号</h3>
-        <p class="text-sm text-slate-500">当前登录账号：{{ authState.username || 'admin' }}</p>
+      <div class="setting-card__header">
+        <p class="setting-card__eyebrow">Security</p>
+        <h3 class="setting-card__title">系统账号</h3>
+        <p class="setting-card__summary">当前登录账号：{{ authState.username || 'admin' }}</p>
       </div>
     </template>
 
-    <UForm :state="formState" :validate="validate" class="space-y-4" @submit="submit">
+    <UForm :state="formState" :validate="validate" class="setting-card__form" @submit="submit">
       <UFormGroup label="当前密码" name="currentPassword" required>
         <UInput
           v-model="formState.currentPassword"
@@ -144,3 +145,47 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
     </UForm>
   </UCard>
 </template>
+
+<style scoped>
+.setting-card {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+}
+
+.setting-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.setting-card__eyebrow {
+  color: rgba(15, 23, 42, 0.44);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__title {
+  color: #111111;
+  font-size: 1.16rem;
+  font-weight: 700;
+}
+
+.setting-card__summary {
+  color: rgba(15, 23, 42, 0.66);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.setting-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+</style>

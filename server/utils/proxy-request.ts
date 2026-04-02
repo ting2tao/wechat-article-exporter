@@ -1,10 +1,40 @@
 import dayjs from 'dayjs';
-import { H3Event, parseCookies } from 'h3';
+import { createError, H3Event, parseCookies } from 'h3';
+import { Agent } from 'undici';
 import { v4 as uuidv4 } from 'uuid';
 import { isDev, USER_AGENT } from '~/config';
 import { RequestOptions } from '~/server/types';
 import { cookieStore, getCookieFromStore } from '~/server/utils/CookieStore';
 import { logRequest, logResponse } from '~/server/utils/logger';
+
+const insecureTlsDispatcher = new Agent({
+  connect: {
+    rejectUnauthorized: false,
+  },
+});
+
+function shouldRetryWithInsecureTls(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return ['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'].includes(
+    (error as NodeJS.ErrnoException).code || ''
+  );
+}
+
+function normalizeFetchError(error: unknown): string {
+  if (error instanceof Error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY') {
+      return '连接微信公众号失败：本机缺少可用的 TLS 根证书链';
+    }
+
+    return code ? `${error.message} (${code})` : error.message;
+  }
+
+  return String(error);
+}
 
 /**
  * 代理微信公众号请求
@@ -20,7 +50,7 @@ export async function proxyMpRequest(options: RequestOptions) {
   });
 
   // 优先读取参数中的 cookie，若无则从 CookieStore 中读取
-  const cookie: string | null = options.cookie || (await getCookieFromStore(options.event));
+  const cookie: string | null = options.cookie !== undefined ? options.cookie : await getCookieFromStore(options.event);
   if (cookie) {
     headers.set('Cookie', cookie);
   }
@@ -49,7 +79,23 @@ export async function proxyMpRequest(options: RequestOptions) {
   }
 
   // 转发请求
-  const mpResponse = await fetch(request);
+  const runtimeConfig = useRuntimeConfig(options.event);
+  const allowInsecureMpTls = runtimeConfig.allowInsecureMpTls || isDev;
+
+  let mpResponse: Response;
+  try {
+    mpResponse = await fetch(request);
+  } catch (error) {
+    if (allowInsecureMpTls && shouldRetryWithInsecureTls(error)) {
+      console.warn('[mp-proxy] TLS certificate validation failed, retrying with insecure TLS in development mode');
+      mpResponse = await fetch(request, { dispatcher: insecureTlsDispatcher });
+    } else {
+      throw createError({
+        statusCode: 502,
+        message: normalizeFetchError(error),
+      });
+    }
+  }
 
   // 记录响应报文
   if (process.env.NUXT_DEBUG_MP_REQUEST && isDev) {
