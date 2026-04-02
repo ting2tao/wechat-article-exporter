@@ -91,7 +91,7 @@ function submit() {
 <template>
   <div>
     <UTooltip text="在线调试" :popper="{ placement: 'top' }">
-      <UButton color="blue" variant="ghost" square @click="onOpen" icon="i-lucide:bug-play"></UButton>
+      <UButton color="gray" variant="soft" size="xs" square @click="onOpen" icon="i-lucide:bug-play"></UButton>
     </UTooltip>
 
     <USlideover v-model="isOpen" :ui="{ width: 'max-w-[800px]' }">
@@ -173,7 +173,7 @@ function submit() {
                     :placeholder="p.label + (p.remark ? '，' + p.remark : '')"
                   />
                 </UFormGroup>
-                <UButton type="submit" color="black" class="px-5" :loading="btnLoading">提交</UButton>
+                <UButton type="submit" color="black" size="sm" class="px-5" :loading="btnLoading">提交</UButton>
               </UForm>
             </div>
           </div>

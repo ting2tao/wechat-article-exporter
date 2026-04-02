@@ -500,53 +500,50 @@ const { getActualDateRange } = useSyncDeadline();
 
     <div class="account-page__shell">
       <header class="account-page__toolbar">
-        <div class="account-page__intro">
-          <p class="account-page__eyebrow">Account workspace</p>
-          <p class="account-page__summary">管理待同步公众号，控制导入、清理与批量同步的主入口。</p>
+        <div class="account-page__meta">
+          <span class="account-page__meta-label">同步范围</span>
+          <span class="account-page__meta-value">{{ getActualDateRange() }}</span>
         </div>
 
         <div class="account-page__actions">
           <UButton icon="i-lucide:user-plus" color="blue" :disabled="isDeleting || addBtnLoading" @click="addAccount">
-          {{ addBtnLoading ? '添加中...' : '添加' }}
-        </UButton>
-        <UButton icon="i-lucide:arrow-down-to-line" color="blue" :loading="importBtnLoading" @click="importAccount">
-          批量导入
-          <input ref="fileRef" type="file" accept=".json" class="hidden" @change="handleFileChange" />
-        </UButton>
-        <UButton
-          icon="i-lucide:arrow-up-from-line"
-          color="blue"
-          :loading="exportBtnLoading"
-          :disabled="!hasSelectedRows"
-          @click="exportAccount"
-        >
-          批量导出
-        </UButton>
-        <UButton
-          color="rose"
-          icon="i-lucide:user-minus"
-          class="disabled:opacity-35"
-          :loading="isDeleting"
-          :disabled="!hasSelectedRows"
-          @click="deleteSelectedAccounts"
-          >删除</UButton
-        >
-        <UButton
-          color="black"
-          icon="i-heroicons:arrow-path-rounded-square-20-solid"
-          class="disabled:opacity-35"
-          :loading="isSyncing"
-          :disabled="isDeleting || !hasSelectedRows"
-          @click="loadSelectedAccountArticle"
-          >同步</UButton
-        >
+            {{ addBtnLoading ? '添加中...' : '添加' }}
+          </UButton>
+          <UButton icon="i-lucide:arrow-down-to-line" color="blue" :loading="importBtnLoading" @click="importAccount">
+            批量导入
+            <input ref="fileRef" type="file" accept=".json" class="hidden" @change="handleFileChange" />
+          </UButton>
+          <UButton
+            icon="i-lucide:arrow-up-from-line"
+            color="blue"
+            :loading="exportBtnLoading"
+            :disabled="!hasSelectedRows"
+            @click="exportAccount"
+          >
+            批量导出
+          </UButton>
+          <UButton
+            color="rose"
+            icon="i-lucide:user-minus"
+            class="disabled:opacity-35"
+            :loading="isDeleting"
+            :disabled="!hasSelectedRows"
+            @click="deleteSelectedAccounts"
+          >
+            删除
+          </UButton>
+          <UButton
+            color="black"
+            icon="i-heroicons:arrow-path-rounded-square-20-solid"
+            class="disabled:opacity-35"
+            :loading="isSyncing"
+            :disabled="isDeleting || !hasSelectedRows"
+            @click="loadSelectedAccountArticle"
+          >
+            同步
+          </UButton>
         </div>
       </header>
-
-      <div class="account-page__meta">
-        <span class="account-page__meta-label">同步范围</span>
-        <span class="account-page__meta-value">{{ getActualDateRange() }}</span>
-      </div>
 
       <div class="account-page__grid">
         <ag-grid-vue
@@ -582,84 +579,81 @@ const { getActualDateRange } = useSyncDeadline();
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .account-page__toolbar,
 .account-page__meta {
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .account-page__toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  padding: 0.95rem 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
 }
 
-.account-page__intro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.account-page__eyebrow {
-  color: rgba(15, 23, 42, 0.45);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-}
-
-.account-page__summary {
-  color: rgba(15, 23, 42, 0.58);
-  font-size: 0.88rem;
-  line-height: 1.55;
+.account-page__toolbar :deep(button) {
+  min-height: 2.35rem;
+  border-radius: 0.78rem;
 }
 
 .account-page__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  align-items: center;
 }
 
 .account-page__meta {
-  display: flex;
+  display: inline-flex;
+  width: fit-content;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.8rem 1rem;
+  gap: 0.55rem;
+  padding: 0.38rem 0.55rem;
 }
 
 .account-page__meta-label {
-  color: rgba(15, 23, 42, 0.45);
-  font-size: 0.75rem;
+  color: rgba(15, 23, 42, 0.48);
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .account-page__meta-value {
   color: #111111;
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .account-page__grid {
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.9rem;
 }
 
-@media (min-width: 1024px) {
+@media (max-width: 768px) {
+  .account-page {
+    padding: 0.75rem;
+  }
+
   .account-page__toolbar {
-    align-items: flex-start;
-    justify-content: space-between;
+    padding: 0.72rem;
+    justify-content: flex-start;
+  }
+
+  .account-page__actions {
+    width: 100%;
   }
 }
 </style>

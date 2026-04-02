@@ -26,32 +26,27 @@ async function getAuthKey() {
 </script>
 
 <template>
-  <div>
-    <p>
-      为了方便第三方开发人员进行个性化定制，本网站将其主要功能（包括但不限于公众号查询、历史文章列表查询、文章下载等）提供
-      API 以供接入。
-    </p>
-    <p class="text-rose-500 font-medium mt-3">
-      注意：目前接入 API 免费，后续会根据实际情况动态调整，不排除会改为收费模式。
-    </p>
-    <p class="text-rose-500 font-medium mt-1">如果你的调用量比较大的话，推荐进行私有部署。</p>
+  <div class="api-summary">
+    <div class="api-summary__hero">
+      <p class="api-summary__copy">
+        网站核心能力已经开放为 API，可用于公众号查询、历史文章列表读取、文章下载等接入场景。
+      </p>
+      <div class="api-summary__tips">
+        <span class="api-summary__tip">当前免费接入</span>
+        <span class="api-summary__tip api-summary__tip--warn">高频调用建议私有部署</span>
+      </div>
+    </div>
 
-    <UAlert class="mt-10 mb-3">
+    <UAlert class="api-summary__alert">
       <template #title>
-        <h3 class="font-medium text-xl flex items-center space-x-2">
+        <h3 class="api-summary__title">
           <UIcon name="i-lucide:key-square" />
           <span>密钥</span>
         </h3>
       </template>
 
       <template #description>
-        <ol class="list-decimal pl-5 text-base">
-          <!--          <li>-->
-          <!--            <p>-->
-          <!--              由于微信公众号本身的限制，密钥有效期最长为 4 天，且只能通过-->
-          <!--              <span class="text-rose-500 font-medium">微信扫码</span> 获取。-->
-          <!--            </p>-->
-          <!--          </li>-->
+        <ol class="api-summary__list">
           <li>
             <p>以下所有 <code>API</code> 如无特殊说明，均需要携带密钥进行调用。密钥可通过以下两种方式传输：</p>
             <p>a. 通过自定义请求头 <code class="text-rose-500 font-medium font-mono">X-Auth-Key</code></p>
@@ -70,14 +65,91 @@ async function getAuthKey() {
             </p>
           </li>
         </ol>
-        <UButton class="mt-3" color="blue" :loading="loading" @click="getAuthKey">
+        <UButton class="api-summary__button" color="black" size="sm" :loading="loading" @click="getAuthKey">
           查询 API 密钥 (确保当前登录信息有效)
         </UButton>
         <div v-if="authKey">
-          <p class="mt-5 mb-2">当前密钥:</p>
+          <p class="api-summary__key-label">当前密钥</p>
           <CodeSegment :code="authKey" lang="text" class="max-w-xl" />
         </div>
       </template>
     </UAlert>
   </div>
 </template>
+
+<style scoped>
+.api-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.api-summary__hero {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.95rem;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 249, 255, 0.92) 100%);
+}
+
+.api-summary__copy {
+  color: rgba(15, 23, 42, 0.72);
+  line-height: 1.7;
+}
+
+.api-summary__tips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.api-summary__tip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  padding: 0.42rem 0.62rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.api-summary__tip--warn {
+  color: #be123c;
+}
+
+.api-summary__alert {
+  margin: 0;
+}
+
+.api-summary__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.api-summary__list {
+  display: grid;
+  gap: 0.75rem;
+  padding-left: 1.2rem;
+  line-height: 1.65;
+}
+
+.api-summary__button {
+  margin-top: 0.9rem;
+}
+
+.api-summary__key-label {
+  margin: 1rem 0 0.5rem;
+  color: rgba(15, 23, 42, 0.56);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+</style>

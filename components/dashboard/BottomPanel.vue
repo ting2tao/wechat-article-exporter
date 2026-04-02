@@ -267,21 +267,21 @@ onUnmounted(() => {
   min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
 .workspace-top-status__item,
 .workspace-top-status__storage {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  min-height: 2.65rem;
+  gap: 0.5rem;
+  min-height: 2.3rem;
   max-width: 100%;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
-  padding: 0.35rem 0.45rem 0.35rem 0.7rem;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  padding: 0.28rem 0.4rem 0.28rem 0.62rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
 }
 
 .workspace-top-status__account {
@@ -293,8 +293,8 @@ onUnmounted(() => {
 
 .workspace-top-status__avatar {
   display: flex;
-  width: 1.8rem;
-  height: 1.8rem;
+  width: 1.65rem;
+  height: 1.65rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -319,7 +319,7 @@ onUnmounted(() => {
 .workspace-top-status__name {
   overflow: hidden;
   color: #111827;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -328,7 +328,7 @@ onUnmounted(() => {
 
 .workspace-top-status__subtle {
   color: rgba(15, 23, 42, 0.5);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1.2;
 }
 

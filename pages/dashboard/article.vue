@@ -406,13 +406,12 @@ function copyWechatLink() {
 
     <div class="article-page__shell">
       <header class="article-page__toolbar">
-        <div class="article-page__intro">
-          <p class="article-page__eyebrow">Article workspace</p>
-          <p class="article-page__summary">按公众号切换文章列表，然后抓取正文、校验缓存并导出目标格式。</p>
-        </div>
-
         <div class="article-page__controls">
-          <AccountSelectorForArticle v-model="selectedAccount" class="article-page__selector w-80" />
+          <AccountSelectorForArticle v-model="selectedAccount" class="article-page__selector" />
+          <div class="article-page__meta">
+            <span class="article-page__meta-label">已选</span>
+            <span class="article-page__meta-value">{{ selectedArticleUrls.length }} 篇</span>
+          </div>
         </div>
 
         <div class="article-page__actions">
@@ -507,52 +506,88 @@ function copyWechatLink() {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .article-page__toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  padding: 0.95rem 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  border-radius: 0.9rem;
+  padding: 0.75rem 0.85rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
-.article-page__intro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.article-page__eyebrow {
-  color: rgba(15, 23, 42, 0.45);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-}
-
-.article-page__summary {
-  color: rgba(15, 23, 42, 0.58);
-  font-size: 0.88rem;
-  line-height: 1.55;
+.article-page__toolbar :deep(button) {
+  min-height: 2.35rem;
+  border-radius: 0.78rem;
 }
 
 .article-page__controls,
 .article-page__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.article-page__selector {
+  min-width: 15rem;
+}
+
+.article-page__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 0.42rem 0.6rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.article-page__meta-label {
+  color: rgba(15, 23, 42, 0.46);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.article-page__meta-value {
+  color: #111111;
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .article-page__grid {
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .article-page {
+    padding: 0.75rem;
+  }
+
+  .article-page__toolbar {
+    padding: 0.72rem;
+    justify-content: flex-start;
+  }
+
+  .article-page__controls {
+    width: 100%;
+  }
+
+  .article-page__actions {
+    width: 100%;
+  }
 }
 </style>

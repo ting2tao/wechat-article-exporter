@@ -103,14 +103,16 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
   <UCard class="setting-card">
     <template #header>
       <div class="setting-card__header">
-        <p class="setting-card__eyebrow">Security</p>
-        <h3 class="setting-card__title">系统账号</h3>
-        <p class="setting-card__summary">当前登录账号：{{ authState.username || 'admin' }}</p>
+        <div class="setting-card__header-copy">
+          <p class="setting-card__eyebrow">Security</p>
+          <h3 class="setting-card__title">系统账号</h3>
+        </div>
+        <div class="setting-card__badge">{{ authState.username || 'admin' }}</div>
       </div>
     </template>
 
     <UForm :state="formState" :validate="validate" class="setting-card__form" @submit="submit">
-      <UFormGroup label="当前密码" name="currentPassword" required>
+      <UFormGroup label="当前密码" name="currentPassword" required class="setting-card__group">
         <UInput
           v-model="formState.currentPassword"
           type="password"
@@ -119,11 +121,11 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
         />
       </UFormGroup>
 
-      <UFormGroup label="新账号" name="username" required>
+      <UFormGroup label="新账号" name="username" required class="setting-card__group">
         <UInput v-model="formState.username" placeholder="请输入新的系统账号" autocomplete="username" />
       </UFormGroup>
 
-      <UFormGroup label="新密码" name="password" required>
+      <UFormGroup label="新密码" name="password" required class="setting-card__group">
         <UInput
           v-model="formState.password"
           type="password"
@@ -132,7 +134,7 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
         />
       </UFormGroup>
 
-      <UFormGroup label="确认新密码" name="confirmPassword" required>
+      <UFormGroup label="确认新密码" name="confirmPassword" required class="setting-card__group">
         <UInput
           v-model="formState.confirmPassword"
           type="password"
@@ -141,7 +143,9 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
         />
       </UFormGroup>
 
-      <UButton type="submit" color="black" :loading="loading">保存新的账号密码</UButton>
+      <UButton type="submit" color="black" size="sm" class="setting-card__submit" :loading="loading">
+        保存新的账号密码
+      </UButton>
     </UForm>
   </UCard>
 </template>
@@ -151,12 +155,19 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
   margin: 0;
   min-width: 0;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .setting-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.setting-card__header-copy {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -173,19 +184,59 @@ async function submit(event: FormSubmitEvent<SecurityFormState>) {
 
 .setting-card__title {
   color: #111111;
-  font-size: 1.16rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
-.setting-card__summary {
-  color: rgba(15, 23, 42, 0.66);
-  font-size: 0.9rem;
-  line-height: 1.65;
+.setting-card__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 999px;
+  padding: 0.1rem 0.72rem;
+  background: rgba(239, 246, 255, 0.86);
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .setting-card__form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
+}
+
+.setting-card__group :deep(label) {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.setting-card__group :deep(input) {
+  min-height: 2.55rem;
+  border-radius: 0.78rem;
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.setting-card__submit {
+  min-height: 2.45rem;
+  width: fit-content;
+  border-radius: 0.82rem;
+}
+
+@media (min-width: 900px) {
+  .setting-card__form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .setting-card__submit {
+    grid-column: span 2;
+  }
 }
 </style>

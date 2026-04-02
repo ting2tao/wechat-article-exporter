@@ -3,8 +3,7 @@
     <template #header>
       <div class="setting-card__header">
         <p class="setting-card__eyebrow">Behavior</p>
-        <h3 class="setting-card__title">其他</h3>
-        <p class="setting-card__summary">控制列表过滤、内容刷新策略和同步时间边界。</p>
+        <h3 class="setting-card__title">抓取</h3>
       </div>
     </template>
 
@@ -74,7 +73,6 @@
       <p class="setting-card__range-header">
         <span class="setting-card__range-title">
           同步时间范围
-          <span class="setting-card__range-note">(说明: 只能从当前时间开始往前同步)</span>
         </span>
         <span class="setting-card__range-value">实际同步范围: {{ getActualDateRange() }}</span>
       </p>
@@ -119,9 +117,9 @@ function formatDate() {
   margin: 0;
   min-width: 0;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .setting-card__header {
@@ -141,66 +139,65 @@ function formatDate() {
 
 .setting-card__title {
   color: #111111;
-  font-size: 1.16rem;
+  font-size: 1.05rem;
   font-weight: 700;
-}
-
-.setting-card__summary {
-  color: rgba(15, 23, 42, 0.66);
-  font-size: 0.9rem;
-  line-height: 1.65;
 }
 
 .setting-card__layout {
   display: grid;
-  gap: 1rem;
+  gap: 0.78rem;
 }
 
 .setting-card__group {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.72rem;
 }
 
 .setting-card__option,
 .setting-card__panel {
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.2rem;
-  padding: 0.95rem 1rem;
-  background: rgba(247, 246, 241, 0.86);
+  border-radius: 0.9rem;
+  padding: 0.82rem 0.9rem;
+  background: rgba(248, 251, 255, 0.82);
 }
 
 .setting-card__option {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .setting-card__label {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.55rem;
   color: #111111;
-  font-size: 0.94rem;
+  font-size: 0.88rem;
   font-weight: 600;
 }
 
 .setting-card__number {
   width: 100%;
-  max-width: 11rem;
+  max-width: 10rem;
 }
 
 .setting-card__number :deep(input) {
+  min-height: 2.5rem;
+  border-radius: 0.78rem;
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.92);
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .setting-card__range {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.3rem;
-  padding: 1rem;
-  background: rgba(247, 246, 241, 0.78);
+  border-radius: 0.95rem;
+  padding: 0.88rem 0.95rem;
+  background: rgba(248, 251, 255, 0.78);
 }
 
 .setting-card__range-header {
@@ -212,31 +209,41 @@ function formatDate() {
 
 .setting-card__range-title {
   color: #111111;
-  font-size: 1rem;
+  font-size: 0.94rem;
   font-weight: 600;
-}
-
-.setting-card__range-note {
-  margin-left: 0.35rem;
-  color: rgba(15, 23, 42, 0.48);
-  font-size: 0.75rem;
-  font-weight: 500;
 }
 
 .setting-card__range-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.95rem;
+  border-radius: 999px;
+  padding: 0.08rem 0.7rem;
+  background: rgba(239, 246, 255, 0.92);
   color: #2563eb;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .setting-card__range-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 
 .setting-card__range-select {
   width: 100%;
+}
+
+.setting-card__range-select :deep(button),
+.setting-card__range-controls :deep(button) {
+  min-height: 2.45rem;
+  border-radius: 0.78rem;
+}
+
+.setting-card__option :deep(label) {
+  font-size: 0.88rem;
 }
 
 .setting-card__popover-text {
@@ -259,7 +266,7 @@ function formatDate() {
   }
 
   .setting-card__range-select {
-    width: min(100%, 17rem);
+    width: min(100%, 15rem);
   }
 }
 </style>

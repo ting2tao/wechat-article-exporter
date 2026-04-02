@@ -500,17 +500,17 @@ async function removeRows() {
 
     <div class="single-page__shell">
       <header class="single-page__toolbar">
-        <div class="single-page__intro">
-          <p class="single-page__eyebrow">Single article</p>
-          <p class="single-page__summary">直接粘贴文章链接，快速补抓内容、修复 fakeid 并导出单篇结果。</p>
-        </div>
-
         <div class="single-page__input">
           <UInput v-model="inputUrl" placeholder="请输入公众号文章链接" class="flex-1" @keyup.enter="addArticle" />
           <UButton color="blue" @click="addArticle">添加</UButton>
         </div>
 
         <div class="single-page__actions">
+          <div class="single-page__meta">
+            <span class="single-page__meta-label">已选</span>
+            <span class="single-page__meta-value">{{ selectedArticleUrls.length }} 篇</span>
+          </div>
+
           <ButtonGroup
             :items="[
               { label: '修复fakeid', event: 'fix-fakeid' },
@@ -590,56 +590,97 @@ async function removeRows() {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .single-page__toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  padding: 0.95rem 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  border-radius: 0.9rem;
+  padding: 0.75rem 0.85rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
-.single-page__intro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.single-page__eyebrow {
-  color: rgba(15, 23, 42, 0.45);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-}
-
-.single-page__summary {
-  color: rgba(15, 23, 42, 0.58);
-  font-size: 0.88rem;
-  line-height: 1.55;
+.single-page__toolbar :deep(button) {
+  min-height: 2.35rem;
+  border-radius: 0.78rem;
 }
 
 .single-page__input,
 .single-page__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.single-page__input {
+  flex: 1 1 28rem;
 }
 
 .single-page__input :deep(.flex-1) {
-  min-width: 16rem;
+  min-width: 18rem;
+}
+
+.single-page__actions {
+  justify-content: flex-end;
+}
+
+.single-page__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 0.42rem 0.6rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.single-page__meta-label {
+  color: rgba(15, 23, 42, 0.46);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.single-page__meta-value {
+  color: #111111;
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .single-page__grid {
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .single-page {
+    padding: 0.75rem;
+  }
+
+  .single-page__toolbar {
+    padding: 0.72rem;
+    justify-content: flex-start;
+  }
+
+  .single-page__input {
+    flex-basis: 100%;
+  }
+
+  .single-page__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

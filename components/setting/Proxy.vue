@@ -4,18 +4,10 @@
       <div class="setting-card__header">
         <p class="setting-card__eyebrow">Proxy</p>
         <h3 class="setting-card__title">代理节点</h3>
-        <p class="setting-card__summary">
-          若此处留空，则网站将使用
-          <ExternalLink :href="docsWebSite + '/get-started/proxy.html'" text="公共代理" />
-          进行资源下载。
-        </p>
-        <p class="setting-card__link">
-          <ExternalLink :href="docsWebSite + '/get-started/private-proxy.html'" text="如何搭建代理节点？" />
-        </p>
       </div>
     </template>
 
-    <div class="setting-card__split">
+    <div class="setting-card__stack">
       <textarea
         v-model="textareaValue"
         class="setting-card__textarea"
@@ -23,22 +15,18 @@
         placeholder="请填写私有部署的代理地址，一行一个"
       ></textarea>
 
-      <div class="setting-card__panel">
-        <div class="setting-card__note">
-          <p class="setting-card__note-title">填写要求</p>
-          <ol class="setting-card__list">
-            <li>以 <code>http/https</code> 开头的绝对路径地址。</li>
-            <li>该地址在使用时会自动拼接 <code>?url=</code> 等参数，请确保末尾格式正确。</li>
-          </ol>
+      <div class="setting-card__footer">
+        <div class="setting-card__links">
+          <ExternalLink :href="docsWebSite + '/get-started/proxy.html'" text="公共代理" />
+          <span>·</span>
+          <ExternalLink :href="docsWebSite + '/get-started/private-proxy.html'" text="私有部署" />
         </div>
 
-        <div class="setting-card__note">
-          <p class="setting-card__note-title">代理示例</p>
+        <div class="setting-card__examples">
           <p><code>https://wproxy-01.deno.dev</code></p>
           <p><code>https://wproxy-01.deno.dev/</code></p>
         </div>
-
-        <UButton type="submit" color="black" class="setting-card__button" @click="save">{{ saveBtnText }}</UButton>
+        <UButton type="submit" color="black" size="sm" class="setting-card__button" @click="save">{{ saveBtnText }}</UButton>
       </div>
     </div>
   </UCard>
@@ -82,9 +70,9 @@ async function save() {
 .setting-card {
   margin: 0;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .setting-card__header {
@@ -104,33 +92,28 @@ async function save() {
 
 .setting-card__title {
   color: #111111;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
-.setting-card__summary,
-.setting-card__link {
-  color: rgba(15, 23, 42, 0.66);
-  font-size: 0.92rem;
-  line-height: 1.65;
-}
-
-.setting-card__split {
-  display: grid;
-  gap: 1rem;
+.setting-card__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .setting-card__textarea {
-  min-height: 22rem;
+  min-height: 16rem;
   width: 100%;
   resize: vertical;
   border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 1.15rem;
-  padding: 1rem;
-  background: rgba(248, 247, 243, 0.88);
+  border-radius: 0.9rem;
+  padding: 0.9rem 0.95rem;
+  background: rgba(248, 251, 255, 0.78);
   color: #111111;
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-  line-height: 1.65;
+  font-size: 0.82rem;
+  line-height: 1.6;
   outline: none;
 }
 
@@ -139,50 +122,43 @@ async function save() {
   box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.05);
 }
 
-.setting-card__panel {
+.setting-card__footer {
   display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
 }
 
-.setting-card__note {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.2rem;
-  padding: 1rem;
-  background: rgba(247, 246, 241, 0.86);
+.setting-card__links,
+.setting-card__examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   color: rgba(15, 23, 42, 0.7);
-  line-height: 1.7;
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 
-.setting-card__note-title {
-  margin-bottom: 0.35rem;
-  color: #111111;
-  font-size: 0.94rem;
-  font-weight: 600;
+.setting-card__links {
+  align-items: center;
 }
 
-.setting-card__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding-left: 1.1rem;
+.setting-card__examples p {
+  margin: 0;
 }
 
 .setting-card code {
-  color: #9f1239;
+  color: #2563eb;
+  border-radius: 999px;
+  padding: 0.18rem 0.42rem;
+  background: rgba(239, 246, 255, 0.9);
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .setting-card__button {
-  width: 6rem;
+  min-height: 2.35rem;
+  width: 5.6rem;
   justify-content: center;
-}
-
-@media (min-width: 1024px) {
-  .setting-card__split {
-    grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 1fr);
-    align-items: start;
-    gap: 1.25rem;
-  }
 }
 </style>

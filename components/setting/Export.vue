@@ -4,7 +4,6 @@
       <div class="setting-card__header">
         <p class="setting-card__eyebrow">Export</p>
         <h3 class="setting-card__title">导出选项</h3>
-        <p class="setting-card__summary">统一配置目录命名、内容包含范围和导出产物的默认行为。</p>
       </div>
     </template>
 
@@ -12,9 +11,9 @@
       <section class="setting-card__section">
         <p class="setting-card__label">
           <span>导出目录名</span>
-          <span class="inline-block w-8">
+          <span class="setting-card__label-action">
             <UPopover mode="hover" :popper="{ placement: 'right' }">
-              <UButton color="white" size="sm" trailing-icon="i-heroicons:variable-16-solid" />
+              <UButton class="setting-card__icon-button" color="white" size="xs" trailing-icon="i-heroicons:variable-16-solid" />
 
               <template #panel>
                 <div class="setting-card__popover">
@@ -43,9 +42,6 @@
             </UPopover>
           </span>
         </p>
-
-        <p class="setting-card__hint">影响 <span class="font-mono">html/txt/markdown/word/pdf</span> 的导出</p>
-
         <UInput
           v-model="preferences.exportConfig.dirname"
           class="setting-card__input setting-card__input--mono"
@@ -54,15 +50,17 @@
         />
 
         <p class="setting-card__preview">
-          <span class="mr-1">预览:</span>
-          <span>{{ dirnamePreview }}</span>
+          <span class="setting-card__preview-label">预览</span>
+          <span class="setting-card__preview-value">{{ dirnamePreview }}</span>
         </p>
       </section>
 
       <section class="setting-card__section">
-        <p class="setting-card__label setting-card__label--inline">
-          <span>目录名最大长度</span>
-          <span class="setting-card__hint">(0表示不限制)</span>
+        <div class="setting-card__compact-row">
+          <div class="setting-card__compact-copy">
+            <p class="setting-card__label setting-card__label--inline">目录名最大长度</p>
+            <p class="setting-card__hint">0 表示不限制</p>
+          </div>
           <UInput
             v-model="preferences.exportConfig.maxlength"
             class="setting-card__number"
@@ -70,7 +68,7 @@
             type="number"
             min="0"
           />
-        </p>
+        </div>
       </section>
 
       <section class="setting-card__toggles">
@@ -144,9 +142,9 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
   margin: 0;
   min-width: 0;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .setting-card__header {
@@ -166,45 +164,53 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
 
 .setting-card__title {
   color: #111111;
-  font-size: 1.16rem;
+  font-size: 1.05rem;
   font-weight: 700;
-}
-
-.setting-card__summary {
-  color: rgba(15, 23, 42, 0.66);
-  font-size: 0.9rem;
-  line-height: 1.65;
 }
 
 .setting-card__stack {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .setting-card__section {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  padding: 0.82rem 0.88rem;
+  background: rgba(248, 251, 255, 0.78);
 }
 
 .setting-card__label {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 0.5rem;
   color: #111111;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
 .setting-card__label--inline {
-  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.setting-card__label-action {
+  display: inline-flex;
+}
+
+.setting-card__icon-button {
+  min-height: 2rem;
+  border-radius: 0.7rem;
 }
 
 .setting-card__hint {
   color: rgba(15, 23, 42, 0.52);
-  font-size: 0.82rem;
-  line-height: 1.6;
+  font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .setting-card__input,
@@ -213,7 +219,21 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
 }
 
 .setting-card__number {
-  max-width: 11rem;
+  max-width: 10rem;
+}
+
+.setting-card__compact-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.setting-card__compact-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .setting-card__input--mono :deep(input),
@@ -221,26 +241,52 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
-.setting-card__preview {
-  color: rgba(15, 23, 42, 0.54);
-  font-size: 0.84rem;
+.setting-card__input :deep(input),
+.setting-card__number :deep(input) {
+  min-height: 2.5rem;
+  border-radius: 0.78rem;
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.92);
 }
 
-.setting-card__preview span:last-child {
+.setting-card__preview {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(15, 23, 42, 0.54);
+  font-size: 0.8rem;
+}
+
+.setting-card__preview-label {
+  font-weight: 600;
+}
+
+.setting-card__preview-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.62rem;
+  background: rgba(239, 246, 255, 0.9);
   color: #111111;
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .setting-card__toggles {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .setting-card__toggle {
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.15rem;
-  padding: 0.85rem 0.9rem;
-  background: rgba(247, 246, 241, 0.86);
+  border-radius: 0.9rem;
+  padding: 0.72rem 0.78rem;
+  background: rgba(248, 251, 255, 0.82);
+}
+
+.setting-card__toggle :deep(label) {
+  font-size: 0.88rem;
 }
 
 .setting-card__popover {
@@ -277,7 +323,7 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
 }
 
 .setting-card__table th {
-  background: rgba(247, 246, 241, 0.92);
+  background: rgba(241, 245, 249, 0.92);
   color: rgba(15, 23, 42, 0.64);
   font-size: 0.78rem;
   font-weight: 600;
@@ -292,7 +338,7 @@ const variables = Array.from({ length: Math.ceil(_variables.length / 2) }, (_, i
 }
 
 .setting-card__table tr:nth-child(even) {
-  background: rgba(247, 246, 241, 0.72);
+  background: rgba(248, 251, 255, 0.78);
 }
 
 @media (min-width: 900px) {

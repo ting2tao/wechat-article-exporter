@@ -6,55 +6,53 @@
 
     <div class="album-page__shell">
       <header class="album-page__toolbar">
-        <div class="album-page__intro">
-          <p class="album-page__eyebrow">Album workspace</p>
-          <p class="album-page__summary">选择公众号与合集，快速拉取全部链接，再按合集打包下载。</p>
-        </div>
-
         <div class="album-page__controls">
-          <div class="album-page__selectors">
-            <AccountSelectorForAlbum v-model="selectedAccount" class="w-80" />
-            <USelectMenu
-              class="w-60"
-              color="gray"
-              v-model="selectedAlbum"
-              :options="selectedAccount?.albums || []"
-              option-attribute="title"
-              size="md"
-              placeholder="选择合集"
-            />
-            <div class="album-page__sort" @click="toggleReverse">
-              <Loader v-if="switchSortLoading" :size="24" class="animate-spin text-slate-500" />
-              <div v-else class="flex space-x-2 w-fit">
-                <ArrowUpNarrowWide v-if="isReverse" />
-                <ArrowDownNarrowWide v-else />
-                <span>{{ isReverse ? '正序' : '倒序' }}</span>
-              </div>
-            </div>
-            <UButton
-              color="black"
-              variant="solid"
-              class="disabled:bg-slate-4 disabled:text-slate-12"
-              :loading="fetchAllArticlesBtnLoading"
-              :disabled="!selectedAccount || !selectedAlbum || albumArticles.length === 0 || noMoreData"
-              @click="fetchAllArticles"
-              >抓取全部文章链接</UButton
-            >
+          <AccountSelectorForAlbum v-model="selectedAccount" class="album-page__selector" />
+          <USelectMenu
+            class="album-page__field"
+            color="gray"
+            v-model="selectedAlbum"
+            :options="selectedAccount?.albums || []"
+            option-attribute="title"
+            size="md"
+            placeholder="选择合集"
+          />
+          <button type="button" class="album-page__sort" @click="toggleReverse">
+            <Loader v-if="switchSortLoading" :size="18" class="animate-spin text-slate-500" />
+            <template v-else>
+              <ArrowUpNarrowWide v-if="isReverse" />
+              <ArrowDownNarrowWide v-else />
+              <span>{{ isReverse ? '正序' : '倒序' }}</span>
+            </template>
+          </button>
+          <div class="album-page__meta" v-if="selectedAlbum">
+            <span class="album-page__meta-label">已加载</span>
+            <span class="album-page__meta-value">{{ albumArticles.length }} 篇</span>
           </div>
         </div>
+
         <div class="album-page__actions">
-          <UButton
-            color="blue"
-            variant="link"
-            size="md"
-            :disabled="!selectedAccount || !selectedAlbum"
-            @click="gotoLink(originalAlbumURL)"
-            >跳转到原始链接</UButton
-          >
           <UButton
             color="black"
             variant="solid"
-            size="md"
+            class="disabled:bg-slate-4 disabled:text-slate-12"
+            :loading="fetchAllArticlesBtnLoading"
+            :disabled="!selectedAccount || !selectedAlbum || albumArticles.length === 0 || noMoreData"
+            @click="fetchAllArticles"
+          >
+            抓取全部文章链接
+          </UButton>
+          <UButton
+            color="blue"
+            variant="soft"
+            :disabled="!selectedAccount || !selectedAlbum"
+            @click="gotoLink(originalAlbumURL)"
+          >
+            原始链接
+          </UButton>
+          <UButton
+            color="black"
+            variant="solid"
             class="disabled:bg-slate-4 disabled:text-slate-12"
             :disabled="!selectedAccount || !selectedAlbum || albumArticles.length === 0 || batchDownloadLoading"
             @click="doBatchDownload"
@@ -332,78 +330,121 @@ async function fetchAllArticles() {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .album-page__toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  padding: 0.95rem 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  border-radius: 0.9rem;
+  padding: 0.75rem 0.85rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
-.album-page__intro {
+.album-page__toolbar :deep(button) {
+  min-height: 2.35rem;
+  border-radius: 0.78rem;
+}
+
+.album-page__controls,
+.album-page__actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
 }
 
-.album-page__eyebrow {
-  color: rgba(15, 23, 42, 0.45);
+.album-page__selector {
+  min-width: 15rem;
+}
+
+.album-page__field {
+  min-width: 13rem;
+}
+
+.album-page__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.55rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #111111;
+  cursor: pointer;
+}
+
+.album-page__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 0.42rem 0.6rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.album-page__meta-label {
+  color: rgba(15, 23, 42, 0.46);
   font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
-.album-page__summary {
-  color: rgba(15, 23, 42, 0.58);
-  font-size: 0.88rem;
-  line-height: 1.55;
-}
-
-.album-page__controls,
-.album-page__actions,
-.album-page__selectors {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.album-page__sort {
-  display: flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0 0.85rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  cursor: pointer;
+.album-page__meta-value {
+  color: #111111;
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .album-page__content {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  border-radius: 1rem;
-  background: rgba(244, 245, 247, 0.9);
+  border-radius: 0.9rem;
+  background: rgba(240, 244, 249, 0.92);
 }
 
 .album-page__feed {
   position: relative;
   max-width: 42rem;
   margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.9rem;
   background: white;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
 }
 
 .banner {
-  background: linear-gradient(rgb(9, 9, 9), rgb(35, 35, 35));
+  background: linear-gradient(135deg, #0f1723 0%, #1d2735 100%);
+}
+
+@media (max-width: 768px) {
+  .album-page {
+    padding: 0.75rem;
+  }
+
+  .album-page__toolbar,
+  .album-page__content {
+    padding: 0.72rem;
+  }
+
+  .album-page__toolbar {
+    justify-content: flex-start;
+  }
+
+  .album-page__actions {
+    width: 100%;
+  }
 }
 </style>

@@ -4,33 +4,31 @@
       <div class="setting-card__header">
         <p class="setting-card__eyebrow">Automation</p>
         <h3 class="setting-card__title">后台定时任务</h3>
-        <p class="setting-card__summary">运行在 ECS 服务端，浏览器关闭后任务仍会按计划继续执行。</p>
       </div>
     </template>
 
     <div class="setting-card__stack">
-      <UAlert color="sky" variant="soft" title="当前能力">
-        <template #description>
-          当前已支持服务端定时同步公众号文章列表，并自动下载未抓取的文章 HTML。配置企业微信 webhook 后，公众号登录态失效、同步结果和下载结果会自动推送告警或通知。
-        </template>
-      </UAlert>
-
       <div class="setting-card__panel">
-        <div>
+        <div class="setting-card__panel-head">
           <p class="setting-card__panel-title">消息通知</p>
-          <p class="setting-card__panel-summary">留空则不推送。推荐填写企业微信机器人 webhook 地址。</p>
+          <span
+            class="setting-card__status"
+            :class="{ 'setting-card__status--active': Boolean(snapshot?.config.alertWebhookUrl) }"
+          >
+            {{ snapshot?.config.alertWebhookUrl ? 'Webhook 已配置' : 'Webhook 未配置' }}
+          </span>
         </div>
 
         <UInput
           v-model="form.alertWebhookUrl"
+          class="setting-card__input"
           placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
         />
 
-        <div class="flex items-center gap-3">
-          <UButton color="blue" :loading="isSaving" @click="saveConfig">保存配置</UButton>
-          <span class="text-sm text-slate-500">
-            当前状态: {{ snapshot?.config.alertWebhookUrl ? '已配置 webhook' : '未配置 webhook' }}
-          </span>
+        <div class="setting-card__panel-actions">
+          <UButton color="blue" size="sm" class="setting-card__button" :loading="isSaving" @click="saveConfig">
+            保存配置
+          </UButton>
         </div>
       </div>
 
@@ -50,23 +48,33 @@
       </div>
 
       <div class="setting-card__panel">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
+        <div class="setting-card__panel-head">
+          <div class="setting-card__panel-heading">
             <p class="setting-card__panel-title">公众号同步</p>
-            <p class="setting-card__panel-summary">首次会全量同步历史文章，后续按增量周期同步。</p>
+            <span class="setting-card__status" :class="{ 'setting-card__status--active': form.syncEnabled }">
+              {{ form.syncEnabled ? '已启用' : '已停用' }}
+            </span>
           </div>
           <UCheckbox v-model="form.syncEnabled" label="启用" />
         </div>
 
-        <div class="flex flex-wrap items-end gap-3">
-          <UInput v-model="form.syncIntervalMinutes" type="number" min="1" class="w-40 font-mono" placeholder="同步间隔">
+        <div class="setting-card__panel-actions">
+          <UInput
+            v-model="form.syncIntervalMinutes"
+            type="number"
+            min="1"
+            class="setting-card__field setting-card__field--mono"
+            placeholder="同步间隔"
+          >
             <template #trailing>
               <span class="text-xs text-gray-500">分钟</span>
             </template>
           </UInput>
-          <UButton color="blue" :loading="isSaving" @click="saveConfig">保存配置</UButton>
+          <UButton color="blue" size="sm" class="setting-card__button" :loading="isSaving" @click="saveConfig">保存配置</UButton>
           <UButton
             color="gray"
+            size="sm"
+            class="setting-card__button"
             :loading="snapshot?.state.syncRunning"
             :disabled="snapshot?.state.downloadRunning"
             @click="runTask('sync')"
@@ -75,46 +83,81 @@
           </UButton>
         </div>
 
-        <div class="text-sm space-y-1 text-slate-600">
-          <p>登录态绑定: {{ snapshot?.config.authBound ? '已绑定' : '未绑定' }}</p>
-          <p>绑定时间: {{ formatTimestamp(snapshot?.config.authBoundAt ?? null) }}</p>
-          <p>上次开始: {{ formatTimestamp(snapshot?.state.lastSyncStartedAt ?? null) }}</p>
-          <p>上次完成: {{ formatTimestamp(snapshot?.state.lastSyncFinishedAt ?? null) }}</p>
-          <p>下次计划: {{ formatTimestamp(snapshot?.state.nextSyncAt ?? null) }}</p>
-          <p v-if="snapshot?.state.lastSyncSummary" class="text-sky-600">最近结果: {{ snapshot.state.lastSyncSummary }}</p>
-          <p v-if="snapshot?.state.lastSyncError" class="text-rose-600">最近错误: {{ snapshot.state.lastSyncError }}</p>
+        <div class="setting-card__detail-grid">
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">登录态</span>
+            <span class="setting-card__detail-value">{{ snapshot?.config.authBound ? '已绑定' : '未绑定' }}</span>
+          </div>
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">绑定时间</span>
+            <span class="setting-card__detail-value">{{ formatTimestamp(snapshot?.config.authBoundAt ?? null) }}</span>
+          </div>
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">上次开始</span>
+            <span class="setting-card__detail-value">{{ formatTimestamp(snapshot?.state.lastSyncStartedAt ?? null) }}</span>
+          </div>
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">上次完成</span>
+            <span class="setting-card__detail-value">{{ formatTimestamp(snapshot?.state.lastSyncFinishedAt ?? null) }}</span>
+          </div>
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">下次计划</span>
+            <span class="setting-card__detail-value">{{ formatTimestamp(snapshot?.state.nextSyncAt ?? null) }}</span>
+          </div>
+          <div v-if="snapshot?.state.lastSyncSummary" class="setting-card__detail setting-card__detail--wide">
+            <span class="setting-card__detail-label">最近结果</span>
+            <span class="setting-card__detail-value setting-card__detail-value--info">
+              {{ snapshot.state.lastSyncSummary }}
+            </span>
+          </div>
+          <div v-if="snapshot?.state.lastSyncError" class="setting-card__detail setting-card__detail--wide">
+            <span class="setting-card__detail-label">最近错误</span>
+            <span class="setting-card__detail-value setting-card__detail-value--danger">
+              {{ snapshot.state.lastSyncError }}
+            </span>
+          </div>
         </div>
       </div>
 
       <div class="setting-card__panel">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
+        <div class="setting-card__panel-head">
+          <div class="setting-card__panel-heading">
             <p class="setting-card__panel-title">HTML 下载</p>
-            <p class="setting-card__panel-summary">按批次补齐服务端尚未下载的文章 HTML 内容。</p>
+            <span class="setting-card__status" :class="{ 'setting-card__status--active': form.downloadEnabled }">
+              {{ form.downloadEnabled ? '已启用' : '已停用' }}
+            </span>
           </div>
           <UCheckbox v-model="form.downloadEnabled" label="启用" />
         </div>
 
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="setting-card__panel-actions">
           <UInput
             v-model="form.downloadIntervalMinutes"
             type="number"
             min="1"
-            class="w-40 font-mono"
+            class="setting-card__field setting-card__field--mono"
             placeholder="抓取间隔"
           >
             <template #trailing>
               <span class="text-xs text-gray-500">分钟</span>
             </template>
           </UInput>
-          <UInput v-model="form.downloadBatchSize" type="number" min="1" class="w-44 font-mono" placeholder="每轮抓取上限">
+          <UInput
+            v-model="form.downloadBatchSize"
+            type="number"
+            min="1"
+            class="setting-card__field setting-card__field--mono"
+            placeholder="每轮抓取上限"
+          >
             <template #trailing>
               <span class="text-xs text-gray-500">篇</span>
             </template>
           </UInput>
-          <UButton color="blue" :loading="isSaving" @click="saveConfig">保存配置</UButton>
+          <UButton color="blue" size="sm" class="setting-card__button" :loading="isSaving" @click="saveConfig">保存配置</UButton>
           <UButton
             color="gray"
+            size="sm"
+            class="setting-card__button"
             :loading="snapshot?.state.downloadRunning"
             :disabled="snapshot?.state.syncRunning"
             @click="runTask('download')"
@@ -123,16 +166,33 @@
           </UButton>
         </div>
 
-        <div class="text-sm space-y-1 text-slate-600">
-          <p>上次开始: {{ formatTimestamp(snapshot?.state.lastDownloadStartedAt ?? null) }}</p>
-          <p>上次完成: {{ formatTimestamp(snapshot?.state.lastDownloadFinishedAt ?? null) }}</p>
-          <p>下次计划: {{ formatTimestamp(snapshot?.state.nextDownloadAt ?? null) }}</p>
-          <p v-if="snapshot?.state.lastDownloadSummary" class="text-sky-600">
-            最近结果: {{ snapshot.state.lastDownloadSummary }}
-          </p>
-          <p v-if="snapshot?.state.lastDownloadError" class="text-rose-600">
-            最近错误: {{ snapshot.state.lastDownloadError }}
-          </p>
+        <div class="setting-card__detail-grid">
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">上次开始</span>
+            <span class="setting-card__detail-value">{{ formatTimestamp(snapshot?.state.lastDownloadStartedAt ?? null) }}</span>
+          </div>
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">上次完成</span>
+            <span class="setting-card__detail-value">
+              {{ formatTimestamp(snapshot?.state.lastDownloadFinishedAt ?? null) }}
+            </span>
+          </div>
+          <div class="setting-card__detail">
+            <span class="setting-card__detail-label">下次计划</span>
+            <span class="setting-card__detail-value">{{ formatTimestamp(snapshot?.state.nextDownloadAt ?? null) }}</span>
+          </div>
+          <div v-if="snapshot?.state.lastDownloadSummary" class="setting-card__detail setting-card__detail--wide">
+            <span class="setting-card__detail-label">最近结果</span>
+            <span class="setting-card__detail-value setting-card__detail-value--info">
+              {{ snapshot.state.lastDownloadSummary }}
+            </span>
+          </div>
+          <div v-if="snapshot?.state.lastDownloadError" class="setting-card__detail setting-card__detail--wide">
+            <span class="setting-card__detail-label">最近错误</span>
+            <span class="setting-card__detail-value setting-card__detail-value--danger">
+              {{ snapshot.state.lastDownloadError }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -244,9 +304,9 @@ onUnmounted(() => {
 .setting-card {
   margin: 0;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(245, 249, 255, 0.92) 100%);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .setting-card__header {
@@ -266,63 +326,169 @@ onUnmounted(() => {
 
 .setting-card__title {
   color: #111111;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 700;
-}
-
-.setting-card__summary {
-  color: rgba(15, 23, 42, 0.66);
-  font-size: 0.92rem;
-  line-height: 1.65;
 }
 
 .setting-card__stack {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 0.85rem;
 }
 
 .setting-card__panel,
 .setting-card__stat {
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.25rem;
-  padding: 1rem;
-  background: rgba(247, 246, 241, 0.82);
+  border-radius: 0.95rem;
+  padding: 0.9rem 0.95rem;
+  background: rgba(248, 251, 255, 0.82);
+}
+
+.setting-card__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+}
+
+.setting-card__panel-head,
+.setting-card__panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
 }
 
 .setting-card__panel-title {
   color: #111111;
-  font-size: 1.02rem;
+  font-size: 0.96rem;
   font-weight: 600;
 }
 
-.setting-card__panel-summary {
-  margin-top: 0.2rem;
+.setting-card__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  padding: 0.08rem 0.64rem;
+  background: rgba(255, 255, 255, 0.88);
   color: rgba(15, 23, 42, 0.56);
-  font-size: 0.84rem;
-  line-height: 1.6;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__status--active {
+  border-color: rgba(37, 99, 235, 0.12);
+  background: rgba(239, 246, 255, 0.88);
+  color: #1d4ed8;
+}
+
+.setting-card__input :deep(input),
+.setting-card__field :deep(input) {
+  min-height: 2.5rem;
+  border-radius: 0.78rem;
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.setting-card__field {
+  width: 100%;
+  max-width: 10rem;
+}
+
+.setting-card__field--mono :deep(input) {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.55rem;
+}
+
+.setting-card__button {
+  min-height: 2.4rem;
+  border-radius: 0.78rem;
 }
 
 .setting-card__stats {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.7rem;
 }
 
 .setting-card__stat-label {
   color: rgba(15, 23, 42, 0.5);
   font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .setting-card__stat-value {
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
   color: #111111;
-  font-size: 1.9rem;
+  font-size: 1.65rem;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
 
+.setting-card__detail-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.setting-card__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.78rem;
+  padding: 0.62rem 0.72rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.setting-card__detail--wide {
+  grid-column: 1 / -1;
+}
+
+.setting-card__detail-label {
+  color: rgba(15, 23, 42, 0.46);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.setting-card__detail-value {
+  color: #0f172a;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.setting-card__detail-value--info {
+  color: #2563eb;
+}
+
+.setting-card__detail-value--danger {
+  color: #e11d48;
+}
+
+@media (max-width: 767px) {
+  .setting-card__panel-head {
+    align-items: flex-start;
+  }
+}
+
 @media (min-width: 900px) {
   .setting-card__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .setting-card__detail-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

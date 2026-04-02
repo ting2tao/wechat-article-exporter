@@ -5,10 +5,10 @@ import { websiteName } from '~/config';
 
 <template>
   <aside class="workspace-sidebar">
-    <div class="workspace-sidebar__brand">
-      <NuxtLink to="/" class="workspace-sidebar__logo">{{ websiteName }}</NuxtLink>
-      <p class="workspace-sidebar__tagline">采集、整理、导出微信公众号文章。</p>
-    </div>
+    <NuxtLink to="/" class="workspace-sidebar__brand" :aria-label="websiteName">
+      <span class="workspace-sidebar__mark">WX</span>
+      <span class="workspace-sidebar__logo">文章台</span>
+    </NuxtLink>
 
     <NavMenus />
   </aside>
@@ -17,86 +17,123 @@ import { websiteName } from '~/config';
 <style scoped>
 .workspace-sidebar {
   display: flex;
-  width: 5.45rem;
+  width: 5.25rem;
   min-height: 100vh;
   flex-shrink: 0;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-right: 1px solid rgba(15, 23, 42, 0.06);
+  gap: 0.65rem;
+  padding: 0.65rem;
+  border-right: 1px solid rgba(148, 163, 184, 0.16);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(246, 244, 238, 0.76) 100%);
+    linear-gradient(180deg, #0f1723 0%, #121a26 100%);
   backdrop-filter: blur(16px);
 }
 
 .workspace-sidebar__brand {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.25rem;
-  padding: 0.95rem 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  padding: 0.8rem 0.65rem;
   background:
-    radial-gradient(circle at top right, rgba(191, 219, 254, 0.28), transparent 32%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 243, 235, 0.9) 100%);
+    radial-gradient(circle at top, rgba(96, 165, 250, 0.26), transparent 48%),
+    linear-gradient(180deg, rgba(15, 23, 35, 0.98) 0%, rgba(13, 19, 29, 0.92) 100%);
   box-shadow:
-    0 12px 26px rgba(15, 23, 42, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+    0 14px 30px rgba(2, 6, 23, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  text-decoration: none;
 }
 
 .workspace-sidebar__brand::after {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
-  background-size: 0.9rem 0.9rem;
-  opacity: 0.35;
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 0.85rem 0.85rem;
+  opacity: 0.5;
   pointer-events: none;
   content: '';
+}
+
+.workspace-sidebar__mark {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.8rem;
+  background: rgba(248, 250, 252, 0.06);
+  color: #f8fafc;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'JetBrains Mono', monospace;
 }
 
 .workspace-sidebar__logo {
   position: relative;
   z-index: 1;
   display: block;
-  color: #111827;
-  font-size: 0.95rem;
+  color: rgba(241, 245, 249, 0.92);
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.4;
-  text-decoration: none;
-  word-break: break-all;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.workspace-sidebar__tagline {
-  display: none;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: 'Avenir Next', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 @media (min-width: 1024px) {
   .workspace-sidebar {
-    width: 18.6rem;
-    gap: 0.9rem;
-    padding: 0.9rem;
+    width: 7.5rem;
+    gap: 0.8rem;
+    padding: 0.8rem;
   }
 
   .workspace-sidebar__brand {
-    padding: 1rem;
+    padding: 0.95rem 0.8rem;
+  }
+
+  .workspace-sidebar__mark {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.9rem;
+    font-size: 0.8rem;
   }
 
   .workspace-sidebar__logo {
-    font-size: 1.2rem;
-    line-height: 1.35;
-    word-break: normal;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-sidebar {
+    width: 4.45rem;
+    gap: 0.5rem;
+    padding: 0.5rem;
   }
 
-  .workspace-sidebar__tagline {
-    display: block;
-    position: relative;
-    z-index: 1;
-    margin-top: 0.45rem;
-    color: rgba(15, 23, 42, 0.52);
-    font-size: 0.84rem;
-    line-height: 1.6;
+  .workspace-sidebar__brand {
+    padding: 0.68rem 0.4rem;
+  }
+
+  .workspace-sidebar__mark {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.7rem;
+    font-size: 0.7rem;
+  }
+
+  .workspace-sidebar__logo {
+    font-size: 0.6rem;
   }
 }
 </style>
