@@ -14,7 +14,7 @@
 - 定时任务不再默认作用于全部公众号，必须由用户显式选择公众号后才会执行。
 - 定时同步与定时导出复用同一组已选公众号范围。
 - 定时导出不再默认固定为 HTML，必须由用户显式选择逐篇导出格式。
-- 定时导出仅支持逐篇格式：`HTML`、`TXT`、`Markdown`、`DOCX`。
+- 定时导出仅支持逐篇格式：`HTML`、`TXT`、`Markdown`。
 - `Excel`、`JSON` 保持手动导出，不进入定时任务。
 - 当未选择任何公众号时，任务保持启用状态，但本轮执行应被安全跳过，并给出明确摘要。
 - 当未选择任何导出格式时，导出任务保持启用状态，但本轮执行应被安全跳过，并给出明确摘要。
@@ -56,14 +56,14 @@
 新增字段：
 
 - `selectedAccountFakeids: string[]`
-- `selectedExportFormats: Array<'html' | 'txt' | 'markdown' | 'word'>`
+- `selectedExportFormats: Array<'html' | 'txt' | 'markdown'>`
 
 语义：
 
 - 为空数组表示“未选择公众号”，不是“全部公众号”。
 - 后台任务在配置启用但列表为空时，应跳过执行并输出说明。
 - `selectedExportFormats` 为空数组表示“未选择导出格式”。
-- `selectedExportFormats` 仅允许逐篇格式，明确不含 `excel`、`json`。
+- `selectedExportFormats` 仅允许逐篇格式，明确不含 `word`、`excel`、`json`。
 
 ### SQLite 配置表
 
@@ -97,8 +97,8 @@
   - 支持多选。
   - 文案明确说明“后台同步与定时导出都会限制在这里选中的公众号范围内”。
 - 导出格式多选：
-  - 固定候选：`HTML`、`TXT`、`Markdown`、`DOCX`。
-  - 明确标注 `Excel / JSON` 仍需手动导出。
+  - 固定候选：`HTML`、`TXT`、`Markdown`。
+  - 明确标注 `Word / Excel / JSON` 仍需手动导出。
 
 导出卡片不再写死为“HTML 下载”，而是调整为更准确的“定时导出”，并展示当前选中的逐篇格式。
 
@@ -166,8 +166,6 @@
 - `HTML`：沿用当前原始 HTML 抓取与落盘逻辑。
 - `TXT`：基于 HTML 解析结果生成纯文本逐篇文件。
 - `Markdown`：基于渲染后的 HTML 内容转 Markdown 逐篇文件。
-- `DOCX`：基于渲染后的 HTML 内容生成逐篇 `docx` 文件。
-
 产物目录使用按批次时间戳切分的方式，避免新任务覆盖旧文件。
 
 ### 启用校验
@@ -206,7 +204,7 @@
 - `server/services/worker/html-downloader.ts`
   - 复用或拆分为服务端逐篇导出器的 HTML 基础能力
 - 新增服务端导出模块
-  - 统一处理 `html/txt/markdown/word`
+  - 统一处理 `html/txt/markdown`
   - 负责格式文件写入与批次目录组织
 
 ### API 层
@@ -230,8 +228,7 @@
 - 若保存时携带非法 fakeid 或非法格式值：
   - 服务端过滤掉空值、重复项与不受支持的格式。
   - 不因为单个非法值导致整体保存失败。
-- 若服务端缺少 `DOCX` 所需导出能力：
-  - 在实现阶段补齐服务端 `docx` 生成方案，避免继续依赖浏览器侧 `window.htmlDocx`。
+- `Word` 继续保留前端手动导出能力，不进入后台定时任务。
 
 ## 测试策略
 

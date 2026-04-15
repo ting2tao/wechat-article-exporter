@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827" />
+      <stop offset="1" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="accent" x1="26" y1="20" x2="38" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC" />
+      <stop offset="1" stop-color="#DBEAFE" />
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="6" width="52" height="52" rx="16" fill="url(#bg)" />
+  <path
+    d="M23 18C23 16.8954 23.8954 16 25 16H35.1716C35.702 16 36.2107 16.2107 36.5858 16.5858L41.4142 21.4142C41.7893 21.7893 42 22.298 42 22.8284V30C42 31.1046 41.1046 32 40 32H25C23.8954 32 23 31.1046 23 30V18Z"
+    fill="url(#accent)"
+  />
+  <path d="M35 16V21C35 22.1046 35.8954 23 37 23H42" fill="#BFDBFE" />
+  <path
+    d="M32 29C32.5523 29 33 29.4477 33 30V38.5858L35.2929 36.2929C35.6834 35.9024 36.3166 35.9024 36.7071 36.2929C37.0976 36.6834 37.0976 37.3166 36.7071 37.7071L32.7071 41.7071C32.3166 42.0976 31.6834 42.0976 31.2929 41.7071L27.2929 37.7071C26.9024 37.3166 26.9024 36.6834 27.2929 36.2929C27.6834 35.9024 28.3166 35.9024 28.7071 36.2929L31 38.5858V30C31 29.4477 31.4477 29 32 29Z"
+    fill="#60A5FA"
+  />
+  <rect x="21" y="43" width="22" height="4" rx="2" fill="#93C5FD" />
+</svg>

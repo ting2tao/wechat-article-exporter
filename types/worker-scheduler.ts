@@ -4,10 +4,19 @@ export interface WorkerSchedulerConfig {
   downloadEnabled: boolean;
   downloadIntervalMinutes: number;
   downloadBatchSize: number;
+  downloadDateRangeType: ScheduledExportDateRangeType;
+  downloadRecentDays: number;
+  downloadDateStart: string;
+  downloadDateEnd: string;
   alertWebhookUrl: string;
   authBound: boolean;
   authBoundAt: number | null;
+  selectedAccountFakeids: string[];
+  selectedExportFormats: ScheduledExportFormat[];
 }
+
+export type ScheduledExportFormat = 'html' | 'txt' | 'markdown';
+export type ScheduledExportDateRangeType = 'all' | 'recentDays' | 'customRange';
 
 export interface WorkerSchedulerState {
   syncRunning: boolean;

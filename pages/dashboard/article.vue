@@ -14,8 +14,11 @@ import type {
 import { AgGridVue } from 'ag-grid-vue3';
 import { defu } from 'defu';
 import type { PreviewArticle } from '#components';
+import { pickWorkerHtmlBackfillTargets } from '#shared/utils/article-html-sync';
 import { durationToSeconds, formatItemShowType, formatTimeStamp, sleep } from '#shared/utils/helpers';
+import { mergeTrackedArticles } from '#shared/utils/article-sync';
 import { validateHTMLContent } from '#shared/utils/html';
+import { getWorkerArticleHtmlBatch, getWorkerArticles, type WorkerTrackedArticle } from '~/apis/worker';
 import GridAlbum from '~/components/grid/Album.vue';
 import GridArticleActions from '~/components/grid/ArticleActions.vue';
 import GridCoverTooltip from '~/components/grid/CoverTooltip.vue';
@@ -23,9 +26,9 @@ import GridStatusBar from '~/components/grid/StatusBar.vue';
 import AccountSelectorForArticle from '~/components/selector/AccountSelectorForArticle.vue';
 import { isDev, websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
-import { articleDeleted, getArticleCache, updateArticleStatus } from '~/store/v2/article';
+import { articleDeleted, getArticleCache, updateArticleStatus, upsertArticleCacheRecords } from '~/store/v2/article';
 import { getDebugCache } from '~/store/v2/debug';
-import { getHtmlCache } from '~/store/v2/html';
+import { getHtmlCache, getHtmlCacheUrlsByFakeid, upsertHtmlCaches } from '~/store/v2/html';
 import { type MpAccount } from '~/store/v2/info';
 import type { Preferences } from '~/types/preferences';
 import type { AppMsgExWithFakeID } from '~/types/types';
@@ -287,9 +290,56 @@ watch(selectedAccount, newVal => {
   switchTableData(newVal!.fakeid).catch(() => {});
 });
 
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function backfillWorkerHtmlCaches(fakeid: string, workerArticles: WorkerTrackedArticle[]) {
+  const cachedUrls = await getHtmlCacheUrlsByFakeid(fakeid);
+  const missingTargets = pickWorkerHtmlBackfillTargets(workerArticles, cachedUrls);
+  if (missingTargets.length === 0) {
+    return;
+  }
+
+  const htmlAssets = [];
+  for (const targets of chunkArray(missingTargets, 20)) {
+    const payload = await getWorkerArticleHtmlBatch(
+      fakeid,
+      targets.map(target => target.aid)
+    ).catch(() => []);
+    if (payload.length === 0) {
+      continue;
+    }
+
+    htmlAssets.push(
+      ...payload.map(item => ({
+        fakeid: item.fakeid,
+        url: item.link,
+        title: item.title,
+        commentID: null,
+        file: new Blob([item.html], { type: 'text/html;charset=utf-8' }),
+      }))
+    );
+  }
+
+  await upsertHtmlCaches(htmlAssets);
+}
+
 async function switchTableData(fakeid: string) {
   loading.value = true;
   const articles: Article[] = [];
+  const [localArticles, workerArticles] = await Promise.all([
+    getArticleCache(fakeid, Math.floor(Date.now() / 1000)),
+    getWorkerArticles(fakeid).catch(() => []),
+  ]);
+  const mergedArticles = mergeTrackedArticles(localArticles, workerArticles);
+  await upsertArticleCacheRecords(mergedArticles);
+  await backfillWorkerHtmlCaches(fakeid, workerArticles);
+
   const data = await getArticleCache(fakeid, Math.floor(Date.now() / 1000));
   for (const article of data) {
     const contentDownload = (await getHtmlCache(article.link)) !== undefined;

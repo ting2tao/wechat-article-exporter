@@ -1,4 +1,5 @@
 import { ARTICLE_LIST_PAGE_SIZE, USER_AGENT } from '~/config';
+import { fetchMpRequest } from '~/server/services/worker/mp-request';
 import { cookieStore } from '~/server/utils/CookieStore';
 import type { MpAccount } from '~/store/v2/info';
 import type { AppMsgEx, AppMsgPublishResponse, PublishInfo, PublishPage } from '~/types/types';
@@ -19,7 +20,7 @@ async function fetchMpJson<T>(authKey: string, endpoint: string, query: Record<s
     url.searchParams.set(key, String(value));
   });
 
-  const response = await fetch(url, {
+  const response = await fetchMpRequest(url, {
     method: 'GET',
     headers: {
       Referer: 'https://mp.weixin.qq.com/',
@@ -46,7 +47,7 @@ export async function checkMpSessionStatus(
   url.searchParams.set('token', token);
   url.searchParams.set('lang', 'zh_CN');
 
-  const response = await fetch(url, {
+  const response = await fetchMpRequest(url, {
     method: 'GET',
     headers: {
       Referer: 'https://mp.weixin.qq.com/',

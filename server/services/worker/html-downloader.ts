@@ -1,10 +1,14 @@
+import dayjs from 'dayjs';
 import { validateHTMLContent } from '#shared/utils/html';
 import { PUBLIC_PROXY_LIST } from '~/config/public-proxy';
+import { exportArticleFormats } from '~/server/services/worker/article-exporter';
+import { resolveScheduledExportDateRange } from '~/server/services/worker/config-helpers';
 import {
   listPendingHtmlArticles,
   markArticleDeleted,
   markArticleHtmlDownloaded,
 } from '~/server/services/worker/repository';
+import type { ScheduledExportFormat } from '~/types/worker-scheduler';
 import { DEFAULT_OPTIONS } from '~/utils/download/constants';
 import { ProxyManager } from '~/utils/download/ProxyManager';
 
@@ -12,6 +16,7 @@ interface HtmlDownloadSummary {
   completed: number;
   failed: number;
   deleted: number;
+  exportedFormats: ScheduledExportFormat[];
 }
 
 function getWorkerProxyList() {
@@ -33,6 +38,10 @@ async function writeHtmlFile(fakeid: string, aid: string, html: string) {
   const filePath = path.join(accountDir, `${aid.replace(/[^a-zA-Z0-9_-]/g, '_')}.html`);
   await fs.writeFile(filePath, html, 'utf8');
   return path.relative(process.cwd(), filePath);
+}
+
+function getExportBatchRoot() {
+  return `./${['.data', 'worker-exports', dayjs().format('YYYYMMDD-HHmmss')].join('/')}`;
 }
 
 async function fetchHtmlThroughProxy(url: string, proxyManager: ProxyManager) {
@@ -62,13 +71,36 @@ async function fetchHtmlThroughProxy(url: string, proxyManager: ProxyManager) {
   throw new Error('下载 HTML 失败');
 }
 
-export async function downloadPendingHtmlBatch(limit: number): Promise<HtmlDownloadSummary> {
-  const articles = await listPendingHtmlArticles(limit);
+export async function downloadPendingHtmlBatch(
+  limit: number,
+  fakeids: string[] = [],
+  formats: ScheduledExportFormat[] = [],
+  dateFilter?: {
+    downloadDateRangeType: 'all' | 'recentDays' | 'customRange';
+    downloadRecentDays: number;
+    downloadDateStart: string;
+    downloadDateEnd: string;
+  }
+): Promise<HtmlDownloadSummary> {
+  const resolvedDateRange = resolveScheduledExportDateRange(
+    dateFilter || {
+      downloadDateRangeType: 'all',
+      downloadRecentDays: 3,
+      downloadDateStart: '',
+      downloadDateEnd: '',
+    }
+  );
+  const articles = await listPendingHtmlArticles(limit, {
+    fakeids,
+    createTimeStart: resolvedDateRange.startTime,
+    createTimeEnd: resolvedDateRange.endTime,
+  });
   if (articles.length === 0) {
     return {
       completed: 0,
       failed: 0,
       deleted: 0,
+      exportedFormats: [...formats],
     };
   }
 
@@ -81,7 +113,9 @@ export async function downloadPendingHtmlBatch(limit: number): Promise<HtmlDownl
     completed: 0,
     failed: 0,
     deleted: 0,
+    exportedFormats: [...formats],
   };
+  const outputRoot = getExportBatchRoot();
 
   for (const article of articles) {
     try {
@@ -89,6 +123,14 @@ export async function downloadPendingHtmlBatch(limit: number): Promise<HtmlDownl
       const [status] = validateHTMLContent(html);
       if (status === 'Success') {
         const filePath = await writeHtmlFile(article.fakeid, article.aid, html);
+        await exportArticleFormats({
+          fakeid: article.fakeid,
+          aid: article.aid,
+          title: article.title,
+          html,
+          formats,
+          outputRoot,
+        });
         await markArticleHtmlDownloaded(article.id, filePath);
         summary.completed++;
       } else if (status === 'Deleted') {

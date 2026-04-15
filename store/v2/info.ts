@@ -78,6 +78,12 @@ export async function getAllInfo(): Promise<MpAccount[]> {
   return db.info.toArray();
 }
 
+export async function replaceAllInfo(mpAccounts: MpAccount[]): Promise<void> {
+  await db.transaction('rw', 'info', async () => {
+    await db.info.bulkPut(mpAccounts);
+  });
+}
+
 // 获取公众号的名称
 export async function getAccountNameByFakeid(fakeid: string): Promise<string | null> {
   const account = await getInfoCache(fakeid);

@@ -19,10 +19,24 @@ export async function updateHtmlCache(html: HtmlAsset): Promise<boolean> {
   });
 }
 
+export async function upsertHtmlCaches(htmlAssets: HtmlAsset[]): Promise<void> {
+  if (htmlAssets.length === 0) {
+    return;
+  }
+
+  await db.transaction('rw', 'html', async () => {
+    await db.html.bulkPut(htmlAssets);
+  });
+}
+
 /**
  * 获取 asset 缓存
  * @param url
  */
 export async function getHtmlCache(url: string): Promise<HtmlAsset | undefined> {
   return db.html.get(url);
+}
+
+export async function getHtmlCacheUrlsByFakeid(fakeid: string): Promise<string[]> {
+  return db.html.where('fakeid').equals(fakeid).primaryKeys() as Promise<string[]>;
 }

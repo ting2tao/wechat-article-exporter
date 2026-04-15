@@ -16,16 +16,6 @@
       ></textarea>
 
       <div class="setting-card__footer">
-        <div class="setting-card__links">
-          <ExternalLink :href="docsWebSite + '/get-started/proxy.html'" text="公共代理" />
-          <span>·</span>
-          <ExternalLink :href="docsWebSite + '/get-started/private-proxy.html'" text="私有部署" />
-        </div>
-
-        <div class="setting-card__examples">
-          <p><code>https://wproxy-01.deno.dev</code></p>
-          <p><code>https://wproxy-01.deno.dev/</code></p>
-        </div>
         <UButton type="submit" color="black" size="sm" class="setting-card__button" @click="save">{{ saveBtnText }}</UButton>
       </div>
     </div>
@@ -33,8 +23,6 @@
 </template>
 
 <script setup lang="ts">
-import ExternalLink from '~/components/base/ExternalLink.vue';
-import { docsWebSite } from '~/config';
 import type { Preferences } from '~/types/preferences';
 
 const preferences: Ref<Preferences> = usePreferences() as unknown as Ref<Preferences>;
@@ -126,34 +114,8 @@ async function save() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.65rem;
-}
-
-.setting-card__links,
-.setting-card__examples {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  color: rgba(15, 23, 42, 0.7);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.setting-card__links {
-  align-items: center;
-}
-
-.setting-card__examples p {
-  margin: 0;
-}
-
-.setting-card code {
-  color: #2563eb;
-  border-radius: 999px;
-  padding: 0.18rem 0.42rem;
-  background: rgba(239, 246, 255, 0.9);
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .setting-card__button {
