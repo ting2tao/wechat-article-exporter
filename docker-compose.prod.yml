@@ -1,8 +1,8 @@
 services:
   app:
     image: ghcr.io/ting2tao/wechat-article-exporter:${IMAGE_TAG:-latest}
-    container_name: wechat-article-exporter
-    restart: unless-stopped
+    container_name: wechat-exporter
+    restart: always
     env_file:
       - .env
     environment:
@@ -14,9 +14,9 @@ services:
       WORKER_SQLITE_PATH: .data/worker-scheduler.db
       WORKER_HTML_DIR: .data/worker-html
     ports:
-      - '${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-3000}:3000'
+      - '3000:3000'
     volumes:
-      - ./data:/app/.data
+      - ${DATA_DIR:-/root/wechat-data}:/app/.data
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
