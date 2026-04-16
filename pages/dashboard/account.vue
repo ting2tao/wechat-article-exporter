@@ -13,7 +13,7 @@ import { AgGridVue } from 'ag-grid-vue3';
 import { defu } from 'defu';
 import { formatTimeStamp } from '#shared/utils/helpers';
 import { getArticleList } from '~/apis';
-import { deleteWorkerAccounts, upsertWorkerAccounts } from '~/apis/worker';
+import { deleteWorkerAccounts, getWorkerAccounts, upsertWorkerAccounts } from '~/apis/worker';
 import GlobalSearchAccountDialog from '~/components/global/SearchAccountDialog.vue';
 import GridAccountActions from '~/components/grid/AccountActions.vue';
 import GridLoadProgress from '~/components/grid/LoadProgress.vue';
@@ -25,7 +25,8 @@ import { IMAGE_PROXY, websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { deleteAccountData } from '~/store/v2';
 import { getArticleCache, hitCache } from '~/store/v2/article';
-import { getAllInfo, getInfoCache, importMpAccounts, type MpAccount } from '~/store/v2/info';
+import { getAllInfo, getInfoCache, importMpAccounts, replaceAllInfo, type MpAccount } from '~/store/v2/info';
+import { mergeAccountLists } from '#shared/utils/account-sync';
 import type { AccountManifest } from '~/types/account';
 import type { Preferences } from '~/types/preferences';
 import { exportAccountJsonFile } from '~/utils/exporter';
@@ -383,7 +384,9 @@ function restoreColumnState() {
 }
 
 async function refresh() {
-  globalRowData = await getAllInfo();
+  const [localAccounts, workerAccounts] = await Promise.all([getAllInfo(), getWorkerAccounts().catch(() => [])]);
+  globalRowData = mergeAccountLists(localAccounts, workerAccounts);
+  await replaceAllInfo(globalRowData);
   gridApi.value?.setGridOption('rowData', globalRowData);
 }
 

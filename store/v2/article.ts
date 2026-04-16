@@ -79,6 +79,18 @@ export async function getArticleCache(fakeid: string, create_time: number): Prom
     .sortBy('create_time');
 }
 
+export async function upsertArticleCacheRecords(articles: AppMsgExWithFakeID[]): Promise<void> {
+  if (articles.length === 0) {
+    return;
+  }
+
+  await db.transaction('rw', 'article', async () => {
+    const values = articles.map(article => ({ ...article, _status: article._status || '' }));
+    const keys = articles.map(article => `${article.fakeid}:${article.aid}`);
+    await db.article.bulkPut(values, keys);
+  });
+}
+
 /**
  * 根据 url 获取文章对象
  * @param url

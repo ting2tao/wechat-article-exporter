@@ -25,7 +25,7 @@
           <p class="proxy-page__hint">公共代理资源有限，大批量抓取建议使用私有代理。</p>
           <UPopover :popper="{ placement: 'left-start', arrow: true }">
             <UButton
-              :icon="hasBlocked ? 'i-lucide:annoyed' : 'i-lucide:smile'"
+              :icon="hasBlocked ? 'i-lucide:server-crash' : 'i-lucide:server'"
               variant="soft"
               :color="hasBlocked ? 'rose' : 'green'"
             >

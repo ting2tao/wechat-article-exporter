@@ -37,15 +37,28 @@
 </template>
 
 <script setup lang="ts">
-import { getAllInfo, type MpAccount } from '~/store/v2/info';
+import { mergeAccountLists } from '#shared/utils/account-sync';
+import { getWorkerAccounts } from '~/apis/worker';
+import { getAllInfo, replaceAllInfo, type MpAccount } from '~/store/v2/info';
 
 // 已缓存的公众号信息
-const cachedAccountInfos = await getAllInfo();
+const cachedAccountInfos = reactive(await getAllInfo());
 const sortedAccountInfos = computed(() => {
   cachedAccountInfos.sort((a, b) => {
     return a.articles > b.articles ? -1 : 1;
   });
   return cachedAccountInfos;
+});
+
+onMounted(async () => {
+  const workerAccounts = await getWorkerAccounts().catch(() => []);
+  if (workerAccounts.length === 0) {
+    return;
+  }
+
+  const mergedAccounts = mergeAccountLists([...cachedAccountInfos], workerAccounts);
+  await replaceAllInfo(mergedAccounts);
+  cachedAccountInfos.splice(0, cachedAccountInfos.length, ...mergedAccounts);
 });
 
 const selected = defineModel<MpAccount | undefined>();

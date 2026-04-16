@@ -117,18 +117,42 @@ jobs:
               fail "docker is not installed on ECS"
             fi
 
-            if ! docker info >/dev/null 2>&1; then
-              id || true
+            DOCKER_BIN='docker'
+
+            log "docker_bin=$(command -v docker)"
+            docker --version || true
+            id || true
+            groups || true
+            ls -l /var/run/docker.sock || true
+
+            if docker info >/tmp/wechat-article-exporter-docker-info.log 2>&1; then
+              log "docker daemon is reachable with current SSH user"
+            elif command -v sudo >/dev/null 2>&1 && sudo -n docker info >/tmp/wechat-article-exporter-docker-info.log 2>&1; then
+              DOCKER_BIN='sudo docker'
+              log "docker daemon is reachable via sudo"
+            else
+              log "docker info output:"
+              cat /tmp/wechat-article-exporter-docker-info.log || true
               fail "docker daemon is unreachable, or the SSH user lacks permission to access Docker"
             fi
 
-            if docker compose version >/dev/null 2>&1; then
-              compose() { docker compose "$@"; }
+            docker_run() {
+              if [ "$DOCKER_BIN" = 'docker' ]; then
+                docker "$@"
+              else
+                sudo docker "$@"
+              fi
+            }
+
+            if docker_run compose version >/tmp/wechat-article-exporter-compose-version.log 2>&1; then
+              compose() { docker_run compose "$@"; }
               log "using docker compose"
             elif command -v docker-compose >/dev/null 2>&1; then
               compose() { docker-compose "$@"; }
               log "using docker-compose"
             else
+              log "docker compose version output:"
+              cat /tmp/wechat-article-exporter-compose-version.log || true
               fail "Neither 'docker compose' nor 'docker-compose' is available on ECS"
             fi
 
@@ -150,7 +174,7 @@ jobs:
 
             if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
               log "login to ghcr.io as $GHCR_USERNAME"
-              if ! echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin; then
+              if ! echo "$GHCR_TOKEN" | docker_run login ghcr.io -u "$GHCR_USERNAME" --password-stdin; then
                 fail "docker login to ghcr.io failed"
               fi
             else
@@ -173,4 +197,4 @@ jobs:
             fi
 
             compose -f docker-compose.prod.yml ps || true
-            docker image prune -f || true
+            docker_run image prune -f || true

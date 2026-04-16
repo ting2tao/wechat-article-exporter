@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3';
 import type { MpAccount } from '~/store/v2/info';
 import type { AppMsgEx } from '~/types/types';
 import type {
@@ -6,6 +7,14 @@ import type {
   WorkerSchedulerState,
   WorkerSchedulerStats,
 } from '~/types/worker-scheduler';
+import {
+  normalizeScheduledExportDate,
+  normalizeScheduledExportDateRangeType,
+  normalizeScheduledExportRecentDays,
+  normalizeSelectedAccountFakeids,
+  normalizeSelectedExportFormats,
+  parseStoredStringArray,
+} from './config-helpers.js';
 
 interface SchedulerConfigRecord {
   syncEnabled: number;
@@ -13,9 +22,15 @@ interface SchedulerConfigRecord {
   downloadEnabled: number;
   downloadIntervalMinutes: number;
   downloadBatchSize: number;
+  downloadDateRangeType: string | null;
+  downloadRecentDays: number | null;
+  downloadDateStart: string | null;
+  downloadDateEnd: string | null;
   alertWebhookUrl: string | null;
   authKey: string | null;
   authBoundAt: number | null;
+  selectedAccountFakeids: string | null;
+  selectedExportFormats: string | null;
 }
 
 interface WorkerAccountRow {
@@ -39,10 +54,54 @@ interface PendingHtmlArticleRow {
   link: string;
 }
 
+interface WorkerArticleRow {
+  id: string;
+  fakeid: string;
+  aid: string;
+  title: string;
+  link: string;
+  cover: string | null;
+  digest: string | null;
+  create_time: number;
+  update_time: number;
+  itemidx: number;
+  is_deleted: number;
+  status: string | null;
+  author_name?: string | null;
+  album_id?: string | null;
+  appmsg_album_infos?: string | null;
+  appmsgid?: number | null;
+  ban_flag?: number | null;
+  checking?: number | null;
+  copyright_stat?: number | null;
+  copyright_type?: number | null;
+  has_red_packet_cover?: number | null;
+  is_pay_subscribe?: number | null;
+  item_show_type?: number | null;
+  media_duration?: string | null;
+  mediaapi_publish_status?: number | null;
+  pic_cdn_url_1_1?: string | null;
+  pic_cdn_url_3_4?: string | null;
+  pic_cdn_url_16_9?: string | null;
+  pic_cdn_url_235_1?: string | null;
+  html_downloaded?: number;
+  html_path?: string | null;
+  html_updated_at?: number | null;
+}
+
+interface WorkerArticleHtmlRow {
+  aid: string;
+  fakeid: string;
+  link: string;
+  title: string;
+  html_path: string | null;
+  html_updated_at: number | null;
+}
+
 interface SqliteApi {
-  all<T>(sql: string, params?: unknown[]): T[];
-  get<T>(sql: string, params?: unknown[]): T | undefined;
-  run(sql: string, params?: unknown[]): { changes: number };
+  all<T>(sql: string, params?: any[]): T[];
+  get<T>(sql: string, params?: any[]): T | undefined;
+  run(sql: string, params?: any[]): { changes: number };
   exec(sql: string): void;
 }
 
@@ -52,9 +111,15 @@ const DEFAULT_CONFIG: SchedulerConfigRecord = {
   downloadEnabled: 0,
   downloadIntervalMinutes: 60,
   downloadBatchSize: 50,
+  downloadDateRangeType: 'all',
+  downloadRecentDays: 3,
+  downloadDateStart: '',
+  downloadDateEnd: '',
   alertWebhookUrl: '',
   authKey: null,
   authBoundAt: null,
+  selectedAccountFakeids: '[]',
+  selectedExportFormats: '[]',
 };
 
 const DEFAULT_STATE: WorkerSchedulerState = {
@@ -89,16 +154,12 @@ function getSchedulerDbPath() {
 async function getSqlite() {
   if (!sqlitePromise) {
     sqlitePromise = (async () => {
-      const [{ DatabaseSync }, fs, path] = await Promise.all([
-        import('node:sqlite'),
-        import('node:fs'),
-        import('node:path'),
-      ]);
+      const [fs, path] = await Promise.all([import('node:fs'), import('node:path')]);
 
       const dbPath = path.resolve(process.cwd(), getSchedulerDbPath());
       fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-      const db = new DatabaseSync(dbPath);
+      const db = new Database(dbPath);
       db.exec(`
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
@@ -111,9 +172,15 @@ async function getSqlite() {
           download_enabled INTEGER NOT NULL DEFAULT 0,
           download_interval_minutes INTEGER NOT NULL DEFAULT 60,
           download_batch_size INTEGER NOT NULL DEFAULT 50,
+          download_date_range_type TEXT NOT NULL DEFAULT 'all',
+          download_recent_days INTEGER NOT NULL DEFAULT 3,
+          download_date_start TEXT NOT NULL DEFAULT '',
+          download_date_end TEXT NOT NULL DEFAULT '',
           alert_webhook_url TEXT NOT NULL DEFAULT '',
           auth_key TEXT,
           auth_bound_at INTEGER,
+          selected_account_fakeids TEXT NOT NULL DEFAULT '[]',
+          selected_export_formats TEXT NOT NULL DEFAULT '[]',
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         );
@@ -175,21 +242,67 @@ async function getSqlite() {
           ON worker_articles(html_downloaded, is_deleted, update_time DESC);
       `);
 
-      const configColumns = db
-        .prepare<{ name: string }>('PRAGMA table_info(worker_scheduler_config)')
-        .all()
-        .map(column => column.name);
+      const articleColumns = (
+        db.prepare('PRAGMA table_info(worker_articles)').all() as Array<{ name: string }>
+      ).map(column => column.name);
+      const missingArticleColumns = [
+        ['author_name', 'TEXT NOT NULL DEFAULT \'\''],
+        ['album_id', 'TEXT NOT NULL DEFAULT \'\''],
+        ['appmsg_album_infos', 'TEXT NOT NULL DEFAULT \'[]\''],
+        ['appmsgid', 'INTEGER NOT NULL DEFAULT 0'],
+        ['ban_flag', 'INTEGER NOT NULL DEFAULT 0'],
+        ['checking', 'INTEGER NOT NULL DEFAULT 0'],
+        ['copyright_stat', 'INTEGER NOT NULL DEFAULT 0'],
+        ['copyright_type', 'INTEGER NOT NULL DEFAULT 0'],
+        ['has_red_packet_cover', 'INTEGER NOT NULL DEFAULT 0'],
+        ['is_pay_subscribe', 'INTEGER NOT NULL DEFAULT 0'],
+        ['item_show_type', 'INTEGER NOT NULL DEFAULT 0'],
+        ['media_duration', 'TEXT NOT NULL DEFAULT \'\''],
+        ['mediaapi_publish_status', 'INTEGER NOT NULL DEFAULT 0'],
+        ['pic_cdn_url_1_1', 'TEXT NOT NULL DEFAULT \'\''],
+        ['pic_cdn_url_3_4', 'TEXT NOT NULL DEFAULT \'\''],
+        ['pic_cdn_url_16_9', 'TEXT NOT NULL DEFAULT \'\''],
+        ['pic_cdn_url_235_1', 'TEXT NOT NULL DEFAULT \'\''],
+      ] as const;
+      for (const [name, definition] of missingArticleColumns) {
+        if (!articleColumns.includes(name)) {
+          db.exec(`ALTER TABLE worker_articles ADD COLUMN ${name} ${definition}`);
+        }
+      }
+
+      const configColumns = (
+        db.prepare('PRAGMA table_info(worker_scheduler_config)').all() as Array<{ name: string }>
+      ).map(column => column.name);
       if (!configColumns.includes('alert_webhook_url')) {
         db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN alert_webhook_url TEXT NOT NULL DEFAULT ''`);
+      }
+      if (!configColumns.includes('selected_account_fakeids')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN selected_account_fakeids TEXT NOT NULL DEFAULT '[]'`);
+      }
+      if (!configColumns.includes('selected_export_formats')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN selected_export_formats TEXT NOT NULL DEFAULT '[]'`);
+      }
+      if (!configColumns.includes('download_date_range_type')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN download_date_range_type TEXT NOT NULL DEFAULT 'all'`);
+      }
+      if (!configColumns.includes('download_recent_days')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN download_recent_days INTEGER NOT NULL DEFAULT 3`);
+      }
+      if (!configColumns.includes('download_date_start')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN download_date_start TEXT NOT NULL DEFAULT ''`);
+      }
+      if (!configColumns.includes('download_date_end')) {
+        db.exec(`ALTER TABLE worker_scheduler_config ADD COLUMN download_date_end TEXT NOT NULL DEFAULT ''`);
       }
 
       const now = Date.now();
       db.prepare(
         `
-          INSERT OR IGNORE INTO worker_scheduler_config (
+        INSERT OR IGNORE INTO worker_scheduler_config (
             id, sync_enabled, sync_interval_minutes, download_enabled, download_interval_minutes,
-            download_batch_size, alert_webhook_url, auth_key, auth_bound_at, created_at, updated_at
-          ) VALUES (1, 0, 60, 0, 60, 50, '', NULL, NULL, ?, ?)
+            download_batch_size, download_date_range_type, download_recent_days, download_date_start, download_date_end,
+            alert_webhook_url, auth_key, auth_bound_at, selected_account_fakeids, selected_export_formats, created_at, updated_at
+          ) VALUES (1, 0, 60, 0, 60, 50, 'all', 3, '', '', '', NULL, NULL, '[]', '[]', ?, ?)
         `
       ).run(now, now);
       db.prepare(
@@ -204,13 +317,13 @@ async function getSqlite() {
       ).run(now);
 
       return {
-        all<T>(sql: string, params: unknown[] = []) {
+        all<T>(sql: string, params: any[] = []) {
           return db.prepare(sql).all(...params) as T[];
         },
-        get<T>(sql: string, params: unknown[] = []) {
+        get<T>(sql: string, params: any[] = []) {
           return db.prepare(sql).get(...params) as T | undefined;
         },
-        run(sql: string, params: unknown[] = []) {
+        run(sql: string, params: any[] = []) {
           const result = db.prepare(sql).run(...params);
           return { changes: Number(result.changes || 0) };
         },
@@ -232,9 +345,15 @@ function mapConfig(row?: SchedulerConfigRecord): WorkerSchedulerConfig {
     downloadEnabled: toBoolean(record.downloadEnabled),
     downloadIntervalMinutes: record.downloadIntervalMinutes,
     downloadBatchSize: record.downloadBatchSize,
+    downloadDateRangeType: normalizeScheduledExportDateRangeType(record.downloadDateRangeType),
+    downloadRecentDays: normalizeScheduledExportRecentDays(record.downloadRecentDays),
+    downloadDateStart: normalizeScheduledExportDate(record.downloadDateStart),
+    downloadDateEnd: normalizeScheduledExportDate(record.downloadDateEnd),
     alertWebhookUrl: record.alertWebhookUrl || '',
     authBound: Boolean(record.authKey),
     authBoundAt: normalizeNullableNumber(record.authBoundAt),
+    selectedAccountFakeids: normalizeSelectedAccountFakeids(parseStoredStringArray(record.selectedAccountFakeids)),
+    selectedExportFormats: normalizeSelectedExportFormats(parseStoredStringArray(record.selectedExportFormats)),
   };
 }
 
@@ -269,9 +388,15 @@ export async function getSchedulerConfig() {
                download_enabled as downloadEnabled,
                download_interval_minutes as downloadIntervalMinutes,
                download_batch_size as downloadBatchSize,
+               download_date_range_type as downloadDateRangeType,
+               download_recent_days as downloadRecentDays,
+               download_date_start as downloadDateStart,
+               download_date_end as downloadDateEnd,
                alert_webhook_url as alertWebhookUrl,
                auth_key as authKey,
-               auth_bound_at as authBoundAt
+               auth_bound_at as authBoundAt,
+               selected_account_fakeids as selectedAccountFakeids,
+               selected_export_formats as selectedExportFormats
         FROM worker_scheduler_config
         WHERE id = 1
       `
@@ -295,9 +420,15 @@ export async function updateSchedulerConfig(
     download_enabled: number;
     download_interval_minutes: number;
     download_batch_size: number;
+    download_date_range_type: string | null;
+    download_recent_days: number | null;
+    download_date_start: string | null;
+    download_date_end: string | null;
     alert_webhook_url: string | null;
     auth_key: string | null;
     auth_bound_at: number | null;
+    selected_account_fakeids: string | null;
+    selected_export_formats: string | null;
   }>('SELECT * FROM worker_scheduler_config WHERE id = 1');
 
   const next = {
@@ -306,9 +437,33 @@ export async function updateSchedulerConfig(
     downloadEnabled: patch.downloadEnabled ?? toBoolean(current?.download_enabled),
     downloadIntervalMinutes: patch.downloadIntervalMinutes ?? current?.download_interval_minutes ?? 60,
     downloadBatchSize: patch.downloadBatchSize ?? current?.download_batch_size ?? 50,
+    downloadDateRangeType:
+      patch.downloadDateRangeType === undefined
+        ? current?.download_date_range_type || 'all'
+        : normalizeScheduledExportDateRangeType(patch.downloadDateRangeType),
+    downloadRecentDays:
+      patch.downloadRecentDays === undefined
+        ? normalizeScheduledExportRecentDays(current?.download_recent_days)
+        : normalizeScheduledExportRecentDays(patch.downloadRecentDays),
+    downloadDateStart:
+      patch.downloadDateStart === undefined
+        ? normalizeScheduledExportDate(current?.download_date_start)
+        : normalizeScheduledExportDate(patch.downloadDateStart),
+    downloadDateEnd:
+      patch.downloadDateEnd === undefined
+        ? normalizeScheduledExportDate(current?.download_date_end)
+        : normalizeScheduledExportDate(patch.downloadDateEnd),
     alertWebhookUrl: patch.alertWebhookUrl === undefined ? current?.alert_webhook_url || '' : patch.alertWebhookUrl,
     authKey: patch.authKey === undefined ? current?.auth_key || null : patch.authKey,
     authBoundAt: patch.authBoundAt === undefined ? current?.auth_bound_at || null : patch.authBoundAt,
+    selectedAccountFakeidsJson:
+      patch.selectedAccountFakeids === undefined
+        ? current?.selected_account_fakeids || '[]'
+        : JSON.stringify(normalizeSelectedAccountFakeids(patch.selectedAccountFakeids)),
+    selectedExportFormatsJson:
+      patch.selectedExportFormats === undefined
+        ? current?.selected_export_formats || '[]'
+        : JSON.stringify(normalizeSelectedExportFormats(patch.selectedExportFormats)),
   };
 
   const now = Date.now();
@@ -320,9 +475,15 @@ export async function updateSchedulerConfig(
           download_enabled = ?,
           download_interval_minutes = ?,
           download_batch_size = ?,
+          download_date_range_type = ?,
+          download_recent_days = ?,
+          download_date_start = ?,
+          download_date_end = ?,
           alert_webhook_url = ?,
           auth_key = ?,
           auth_bound_at = ?,
+          selected_account_fakeids = ?,
+          selected_export_formats = ?,
           updated_at = ?
       WHERE id = 1
     `,
@@ -332,9 +493,15 @@ export async function updateSchedulerConfig(
       next.downloadEnabled ? 1 : 0,
       Math.max(1, Number(next.downloadIntervalMinutes) || 60),
       Math.max(1, Number(next.downloadBatchSize) || 50),
+      next.downloadDateRangeType,
+      next.downloadRecentDays,
+      next.downloadDateStart,
+      next.downloadDateEnd,
       next.alertWebhookUrl.trim(),
       next.authKey,
       next.authBoundAt,
+      next.selectedAccountFakeidsJson,
+      next.selectedExportFormatsJson,
       now,
     ]
   );
@@ -433,7 +600,11 @@ export async function upsertTrackedAccounts(accounts: MpAccount[]) {
 export async function listTrackedAccounts(): Promise<MpAccount[]> {
   const sqlite = await getSqlite();
   const rows = sqlite.all<WorkerAccountRow>('SELECT * FROM worker_accounts ORDER BY created_at DESC');
-  return rows.map(row => ({
+  return rows.map(mapWorkerAccountRow);
+}
+
+function mapWorkerAccountRow(row: WorkerAccountRow): MpAccount {
+  return {
     fakeid: row.fakeid,
     nickname: row.nickname || undefined,
     round_head_img: row.round_head_img || undefined,
@@ -444,7 +615,123 @@ export async function listTrackedAccounts(): Promise<MpAccount[]> {
     create_time: Math.floor(row.created_at / 1000),
     update_time: row.last_sync_at ? Math.floor(row.last_sync_at / 1000) : undefined,
     last_update_time: row.last_article_time || undefined,
-  }));
+  };
+}
+
+export async function listTrackedAccountsByFakeids(fakeids: string[]): Promise<MpAccount[]> {
+  const normalizedFakeids = normalizeSelectedAccountFakeids(fakeids);
+  if (normalizedFakeids.length === 0) {
+    return [];
+  }
+
+  const sqlite = await getSqlite();
+  const placeholders = normalizedFakeids.map(() => '?').join(', ');
+  const rows = sqlite.all<WorkerAccountRow>(
+    `SELECT * FROM worker_accounts WHERE fakeid IN (${placeholders})`,
+    normalizedFakeids
+  );
+  const rowMap = new Map(rows.map(row => [row.fakeid, row]));
+  return normalizedFakeids
+    .map(fakeid => rowMap.get(fakeid))
+    .filter(Boolean)
+    .map(row => mapWorkerAccountRow(row!));
+}
+
+function mapWorkerArticleRow(row: WorkerArticleRow) {
+  return {
+    fakeid: row.fakeid,
+    aid: row.aid,
+    album_id: row.album_id || '',
+    appmsg_album_infos: row.appmsg_album_infos ? JSON.parse(row.appmsg_album_infos) : [],
+    appmsgid: row.appmsgid || 0,
+    author_name: row.author_name || '',
+    ban_flag: row.ban_flag || 0,
+    checking: row.checking || 0,
+    copyright_stat: row.copyright_stat || 0,
+    copyright_type: row.copyright_type || 0,
+    cover: row.cover || '',
+    create_time: row.create_time,
+    digest: row.digest || '',
+    has_red_packet_cover: row.has_red_packet_cover || 0,
+    is_deleted: Boolean(row.is_deleted),
+    is_pay_subscribe: row.is_pay_subscribe || 0,
+    item_show_type: row.item_show_type || 0,
+    itemidx: row.itemidx,
+    link: row.link,
+    media_duration: row.media_duration || '',
+    mediaapi_publish_status: row.mediaapi_publish_status || 0,
+    pic_cdn_url_1_1: row.pic_cdn_url_1_1 || '',
+    pic_cdn_url_3_4: row.pic_cdn_url_3_4 || '',
+    pic_cdn_url_16_9: row.pic_cdn_url_16_9 || '',
+    pic_cdn_url_235_1: row.pic_cdn_url_235_1 || '',
+    title: row.title,
+    update_time: row.update_time,
+    _status: row.status || '',
+    html_downloaded: Boolean(row.html_downloaded),
+    html_updated_at: row.html_updated_at || null,
+  };
+}
+
+export async function listTrackedArticlesByFakeid(fakeid: string) {
+  const sqlite = await getSqlite();
+  const rows = sqlite.all<WorkerArticleRow>(
+    `
+      SELECT *
+      FROM worker_articles
+      WHERE fakeid = ?
+      ORDER BY create_time DESC, itemidx ASC
+    `,
+    [fakeid]
+  );
+  return rows.map(mapWorkerArticleRow);
+}
+
+export async function readTrackedArticleHtmlBatch(fakeid: string, aids: string[]) {
+  const normalizedAids = [...new Set(aids.map(aid => aid.trim()).filter(Boolean))];
+  if (normalizedAids.length === 0) {
+    return [];
+  }
+
+  const sqlite = await getSqlite();
+  const placeholders = normalizedAids.map(() => '?').join(', ');
+  const rows = sqlite.all<WorkerArticleHtmlRow>(
+    `
+      SELECT aid, fakeid, link, title, html_path, html_updated_at
+      FROM worker_articles
+      WHERE fakeid = ?
+        AND aid IN (${placeholders})
+        AND html_downloaded = 1
+        AND html_path IS NOT NULL
+      ORDER BY update_time DESC, create_time DESC
+    `,
+    [fakeid, ...normalizedAids]
+  );
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+  const htmlList = await Promise.all(
+    rows.map(async row => {
+      if (!row.html_path) {
+        return null;
+      }
+
+      try {
+        const filePath = path.resolve(process.cwd(), row.html_path);
+        const html = await fs.readFile(filePath, 'utf8');
+        return {
+          aid: row.aid,
+          fakeid: row.fakeid,
+          link: row.link,
+          title: row.title,
+          html,
+          htmlUpdatedAt: row.html_updated_at || null,
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return htmlList.filter(Boolean);
 }
 
 export async function removeTrackedAccounts(fakeids: string[]) {
@@ -489,8 +776,11 @@ export async function upsertAccountArticles(
       `
         INSERT INTO worker_articles (
           id, fakeid, aid, title, link, cover, digest, create_time, update_time, itemidx,
-          is_deleted, status, html_downloaded, html_path, html_updated_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, NULL, NULL, ?, ?)
+          is_deleted, status, html_downloaded, html_path, html_updated_at, created_at, updated_at,
+          author_name, album_id, appmsg_album_infos, appmsgid, ban_flag, checking, copyright_stat,
+          copyright_type, has_red_packet_cover, is_pay_subscribe, item_show_type, media_duration,
+          mediaapi_publish_status, pic_cdn_url_1_1, pic_cdn_url_3_4, pic_cdn_url_16_9, pic_cdn_url_235_1
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           link = excluded.link,
@@ -500,6 +790,23 @@ export async function upsertAccountArticles(
           update_time = excluded.update_time,
           itemidx = excluded.itemidx,
           is_deleted = excluded.is_deleted,
+          author_name = excluded.author_name,
+          album_id = excluded.album_id,
+          appmsg_album_infos = excluded.appmsg_album_infos,
+          appmsgid = excluded.appmsgid,
+          ban_flag = excluded.ban_flag,
+          checking = excluded.checking,
+          copyright_stat = excluded.copyright_stat,
+          copyright_type = excluded.copyright_type,
+          has_red_packet_cover = excluded.has_red_packet_cover,
+          is_pay_subscribe = excluded.is_pay_subscribe,
+          item_show_type = excluded.item_show_type,
+          media_duration = excluded.media_duration,
+          mediaapi_publish_status = excluded.mediaapi_publish_status,
+          pic_cdn_url_1_1 = excluded.pic_cdn_url_1_1,
+          pic_cdn_url_3_4 = excluded.pic_cdn_url_3_4,
+          pic_cdn_url_16_9 = excluded.pic_cdn_url_16_9,
+          pic_cdn_url_235_1 = excluded.pic_cdn_url_235_1,
           updated_at = excluded.updated_at
       `,
       [
@@ -516,6 +823,23 @@ export async function upsertAccountArticles(
         article.is_deleted ? 1 : 0,
         now,
         now,
+        article.author_name || '',
+        article.album_id || '',
+        JSON.stringify(article.appmsg_album_infos || []),
+        article.appmsgid || 0,
+        article.ban_flag || 0,
+        article.checking || 0,
+        article.copyright_stat || 0,
+        article.copyright_type || 0,
+        article.has_red_packet_cover || 0,
+        article.is_pay_subscribe || 0,
+        article.item_show_type || 0,
+        article.media_duration || '',
+        article.mediaapi_publish_status || 0,
+        article.pic_cdn_url_1_1 || '',
+        article.pic_cdn_url_3_4 || '',
+        article.pic_cdn_url_16_9 || '',
+        article.pic_cdn_url_235_1 || '',
       ]
     );
 
@@ -561,18 +885,48 @@ export async function upsertAccountArticles(
   return { inserted, updated };
 }
 
-export async function listPendingHtmlArticles(limit: number): Promise<PendingHtmlArticleRow[]> {
+export async function listPendingHtmlArticles(
+  limit: number,
+  options?: {
+    fakeids?: string[] | null;
+    createTimeStart?: number | null;
+    createTimeEnd?: number | null;
+  }
+): Promise<PendingHtmlArticleRow[]> {
   const sqlite = await getSqlite();
+  const normalizedFakeids = options?.fakeids == null ? null : normalizeSelectedAccountFakeids(options.fakeids);
+  if (normalizedFakeids?.length === 0) {
+    return [];
+  }
+  const createTimeStart = options?.createTimeStart ?? null;
+  const createTimeEnd = options?.createTimeEnd ?? null;
+  const fakeidFilter =
+    normalizedFakeids && normalizedFakeids.length > 0
+      ? ` AND fakeid IN (${normalizedFakeids.map(() => '?').join(', ')})`
+      : '';
+  const createTimeStartFilter = createTimeStart == null ? '' : ' AND create_time >= ?';
+  const createTimeEndFilter = createTimeEnd == null ? '' : ' AND create_time <= ?';
+  const params = [...(normalizedFakeids || [])];
+  if (createTimeStart != null) {
+    params.push(createTimeStart);
+  }
+  if (createTimeEnd != null) {
+    params.push(createTimeEnd);
+  }
+  params.push(Math.max(1, limit));
   return sqlite.all<PendingHtmlArticleRow>(
     `
       SELECT id, fakeid, aid, title, link
       FROM worker_articles
       WHERE is_deleted = 0
         AND html_downloaded = 0
+        ${fakeidFilter}
+        ${createTimeStartFilter}
+        ${createTimeEndFilter}
       ORDER BY update_time DESC, create_time DESC
       LIMIT ?
     `,
-    [Math.max(1, limit)]
+    params
   );
 }
 

@@ -1,9 +1,9 @@
-import dayjs from 'dayjs';
-import { createError, H3Event, parseCookies } from 'h3';
+import { createError, getRequestProtocol, H3Event, parseCookies } from 'h3';
 import { Agent } from 'undici';
 import { v4 as uuidv4 } from 'uuid';
 import { isDev, USER_AGENT } from '~/config';
 import { RequestOptions } from '~/server/types';
+import { buildMpAuthCookies } from '~/server/utils/auth-cookie';
 import { cookieStore, getCookieFromStore } from '~/server/utils/CookieStore';
 import { logRequest, logResponse } from '~/server/utils/logger';
 
@@ -138,12 +138,9 @@ export async function proxyMpRequest(options: RequestOptions) {
       }
       console.log(persisted ? 'cookie 写入成功' : 'cookie 已写入内存，KV 持久化失败');
 
-      setCookies = [
-        `auth-key=${authKey}; Path=/; Expires=${dayjs().add(4, 'days').toString()}; Secure; HttpOnly`,
-
-        // 登录成功后，删除浏览器的 uuid cookie
-        `uuid=EXPIRED; Path=/; Expires=${dayjs().subtract(1, 'days').toString()}; Secure; HttpOnly`,
-      ];
+      const protocol = getRequestProtocol(options.event, { xForwardedProto: true });
+      const secure = protocol === 'https' || process.env.NODE_ENV === 'production';
+      setCookies = buildMpAuthCookies(authKey, secure);
     } catch (error) {
       console.error('action(login) failed:', error);
 

@@ -1,13 +1,15 @@
 import { sleep } from '#shared/utils/helpers';
+import { buildScheduledExportSummary, shouldSkipScheduledExport } from '~/server/services/worker/config-helpers';
 import { downloadPendingHtmlBatch } from '~/server/services/worker/html-downloader';
 import { checkMpSessionStatus, fetchAccountArticlePage } from '~/server/services/worker/mp-client';
 import { notifyWorkerStatus } from '~/server/services/worker/notifier';
+import { getInterruptedTaskRecoveryPatch } from '~/server/services/worker/scheduler-recovery';
 import {
   getSchedulerAuthKey,
   getSchedulerConfig,
   getSchedulerSnapshot,
   getSchedulerState,
-  listTrackedAccounts,
+  listTrackedAccountsByFakeids,
   updateSchedulerConfig,
   updateSchedulerState,
   upsertAccountArticles,
@@ -25,6 +27,17 @@ let schedulerTimer: NodeJS.Timeout | null = null;
 let activeTask: Promise<void> | null = null;
 let lastMpStatusCheckAt = 0;
 let lastMpSessionValid: boolean | null = null;
+
+async function recoverInterruptedTasksIfNeeded() {
+  if (activeTask) {
+    return;
+  }
+
+  const patch = getInterruptedTaskRecoveryPatch(await getSchedulerState());
+  if (Object.keys(patch).length > 0) {
+    await updateSchedulerState(patch);
+  }
+}
 
 function getNextRunAt(
   enabled: boolean,
@@ -47,6 +60,7 @@ function getNextRunAt(
 }
 
 export async function refreshWorkerSchedule() {
+  await recoverInterruptedTasksIfNeeded();
   const [config, state] = await Promise.all([getSchedulerConfig(), getSchedulerState()]);
   await updateSchedulerState({
     nextSyncAt: getNextRunAt(config.syncEnabled, config.syncIntervalMinutes, state.lastSyncStartedAt, state.nextSyncAt),
@@ -93,9 +107,20 @@ async function runSyncTaskInternal() {
     throw new Error('后台任务还没有绑定登录态，请登录后在设置页保存任务配置');
   }
 
-  const accounts = await listTrackedAccounts();
+  const config = await getSchedulerConfig();
+  if (config.selectedAccountFakeids.length === 0) {
+    const summary = '未选择公众号，已跳过本轮同步';
+    await updateSchedulerState({
+      lastSyncFinishedAt: Date.now(),
+      lastSyncSummary: summary,
+      lastSyncError: '',
+    });
+    return summary;
+  }
+
+  const accounts = await listTrackedAccountsByFakeids(config.selectedAccountFakeids);
   if (accounts.length === 0) {
-    const summary = '当前没有托管公众号，已跳过同步';
+    const summary = '所选公众号未托管或已被删除，已跳过本轮同步';
     await updateSchedulerState({
       lastSyncFinishedAt: Date.now(),
       lastSyncSummary: summary,
@@ -124,8 +149,32 @@ async function runSyncTaskInternal() {
 
 async function runDownloadTaskInternal() {
   const config = await getSchedulerConfig();
-  const summary = await downloadPendingHtmlBatch(config.downloadBatchSize);
-  const summaryText = `已下载 ${summary.completed} 篇 HTML，失败 ${summary.failed} 篇，检测到已删除 ${summary.deleted} 篇`;
+
+  const decision = shouldSkipScheduledExport(config.selectedAccountFakeids, config.selectedExportFormats);
+  if (decision.shouldSkip) {
+    await updateSchedulerState({
+      lastDownloadFinishedAt: Date.now(),
+      lastDownloadSummary: decision.summary,
+      lastDownloadError: '',
+    });
+    return decision.summary;
+  }
+
+  const summary = await downloadPendingHtmlBatch(
+    config.downloadBatchSize,
+    config.selectedAccountFakeids,
+    config.selectedExportFormats,
+    {
+      downloadDateRangeType: config.downloadDateRangeType,
+      downloadRecentDays: config.downloadRecentDays,
+      downloadDateStart: config.downloadDateStart,
+      downloadDateEnd: config.downloadDateEnd,
+    }
+  );
+  const summaryText =
+    summary.completed + summary.failed + summary.deleted === 0
+      ? '当前没有待导出的文章，已跳过本轮定时导出'
+      : buildScheduledExportSummary(summary);
   await updateSchedulerState({
     lastDownloadFinishedAt: Date.now(),
     lastDownloadSummary: summaryText,
@@ -243,7 +292,7 @@ async function runTask(task: 'sync' | 'download') {
     const summary = await runDownloadTaskInternal();
     await notifyWorkerStatus({
       title: '后台任务通知',
-      lines: [`任务: HTML 下载`, `结果: ${summary}`],
+      lines: [`任务: 定时导出`, `结果: ${summary}`],
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -254,7 +303,7 @@ async function runTask(task: 'sync' | 'download') {
     });
     await notifyWorkerStatus({
       title: '后台任务告警',
-      lines: [`任务: HTML 下载`, `结果: 失败`, `详情: ${message}`],
+      lines: [`任务: 定时导出`, `结果: 失败`, `详情: ${message}`],
       dedupeKey: `worker-download-error:${message}`,
       cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
     });
@@ -290,6 +339,8 @@ async function tick() {
 }
 
 export async function queueWorkerTask(task: 'sync' | 'download', authKey?: string | null) {
+  await recoverInterruptedTasksIfNeeded();
+
   if (authKey) {
     await updateSchedulerConfig({
       authKey,
@@ -313,6 +364,7 @@ export async function ensureWorkerSchedulerStarted() {
   }
 
   schedulerStarted = true;
+  await recoverInterruptedTasksIfNeeded();
   await refreshWorkerSchedule();
   schedulerTimer = setInterval(() => {
     void tick().catch(error => {
@@ -338,5 +390,6 @@ export async function ensureWorkerSchedulerStarted() {
 }
 
 export async function getWorkerSchedulerSnapshot() {
+  await recoverInterruptedTasksIfNeeded();
   return getSchedulerSnapshot();
 }
