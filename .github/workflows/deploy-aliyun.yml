@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEPLOY_PATH: ${{ secrets.ALIYUN_DEPLOY_PATH || '/opt/wechat-article-exporter' }}
+      DATA_DIR: ${{ secrets.ALIYUN_DATA_DIR || '/root/wechat-data' }}
 
     steps:
       - name: Checkout repository
@@ -88,12 +89,13 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
           DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+          DATA_DIR: ${{ env.DATA_DIR }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_PORT || 22 }}
-          envs: IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN,PROD_ENV_FILE,DEPLOY_PATH
+          envs: IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN,PROD_ENV_FILE,DEPLOY_PATH,DATA_DIR
           debug: true
           script_stop: true
           script: |
@@ -111,6 +113,7 @@ jobs:
             log "host=$(hostname)"
             log "user=$(id -un)"
             log "deploy_path=$DEPLOY_PATH"
+            log "data_dir=${DATA_DIR:-/root/wechat-data}"
             log "image_tag=${IMAGE_TAG:-latest}"
 
             if ! command -v docker >/dev/null 2>&1; then
@@ -144,20 +147,42 @@ jobs:
               fi
             }
 
-            if docker_run compose version >/tmp/wechat-article-exporter-compose-version.log 2>&1; then
+            COMPOSE_READY=''
+
+            set +e
+            docker_run compose version >/tmp/wechat-article-exporter-compose-version.log 2>&1
+            compose_plugin_status=$?
+            set -e
+
+            if [ "$compose_plugin_status" -eq 0 ]; then
               compose() { docker_run compose "$@"; }
+              COMPOSE_READY='1'
               log "using docker compose"
-            elif command -v docker-compose >/dev/null 2>&1; then
-              compose() { docker-compose "$@"; }
-              log "using docker-compose"
-            else
+            fi
+
+            if [ -z "$COMPOSE_READY" ] && command -v docker-compose >/dev/null 2>&1; then
+              set +e
+              docker-compose version >/tmp/wechat-article-exporter-docker-compose-version.log 2>&1
+              docker_compose_status=$?
+              set -e
+
+              if [ "$docker_compose_status" -eq 0 ]; then
+                compose() { docker-compose "$@"; }
+                COMPOSE_READY='1'
+                log "using docker-compose"
+              fi
+            fi
+
+            if [ -z "$COMPOSE_READY" ]; then
               log "docker compose version output:"
               cat /tmp/wechat-article-exporter-compose-version.log || true
-              fail "Neither 'docker compose' nor 'docker-compose' is available on ECS"
+              log "docker-compose version output:"
+              cat /tmp/wechat-article-exporter-docker-compose-version.log || true
+              log "compose is unavailable, fallback to docker run deployment"
             fi
 
             log "prepare deploy directory"
-            mkdir -p "$DEPLOY_PATH"/data/kv
+            mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
 
             if [ ! -f docker-compose.prod.yml ]; then
@@ -181,20 +206,54 @@ jobs:
               log "GHCR credentials are empty. Skip docker login (works only for public images)."
             fi
 
-            log "validate compose file"
-            if ! IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml config >/dev/null; then
-              fail "docker compose config validation failed"
+            IMAGE_REF="ghcr.io/ting2tao/wechat-article-exporter:${IMAGE_TAG:-latest}"
+
+            if [ -n "$COMPOSE_READY" ]; then
+              log "validate compose file"
+              if ! IMAGE_TAG="$IMAGE_TAG" DATA_DIR="$DATA_DIR" compose -f docker-compose.prod.yml config >/dev/null; then
+                fail "docker compose config validation failed"
+              fi
+
+              log "pull image"
+              if ! IMAGE_TAG="$IMAGE_TAG" DATA_DIR="$DATA_DIR" compose -f docker-compose.prod.yml pull; then
+                fail "docker compose pull failed"
+              fi
+
+              log "start containers"
+              if ! IMAGE_TAG="$IMAGE_TAG" DATA_DIR="$DATA_DIR" compose -f docker-compose.prod.yml up -d --remove-orphans; then
+                fail "docker compose up failed"
+              fi
+
+              compose -f docker-compose.prod.yml ps || true
+            else
+              log "prepare docker run data directory"
+              mkdir -p "$DATA_DIR"
+
+              log "pull image $IMAGE_REF"
+              if ! docker_run pull "$IMAGE_REF"; then
+                fail "docker pull failed"
+              fi
+
+              log "remove existing containers"
+              docker_run rm -f wechat-exporter || true
+              docker_run rm -f wechat-article-exporter || true
+
+              log "start container via docker run"
+              if ! docker_run run -d \
+                --name wechat-exporter \
+                --env-file "$DEPLOY_PATH/.env" \
+                -p 3000:3000 \
+                -e NITRO_KV_DRIVER=fs \
+                -e NITRO_KV_BASE=.data/kv \
+                -e WORKER_SQLITE_PATH=.data/worker-scheduler.db \
+                -e WORKER_HTML_DIR=.data/worker-html \
+                -v "$DATA_DIR:/app/.data" \
+                --restart=always \
+                "$IMAGE_REF"; then
+                fail "docker run failed"
+              fi
+
+              docker_run ps --filter name=wechat-exporter || true
             fi
 
-            log "pull image"
-            if ! IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml pull; then
-              fail "docker compose pull failed"
-            fi
-
-            log "start containers"
-            if ! IMAGE_TAG="$IMAGE_TAG" compose -f docker-compose.prod.yml up -d --remove-orphans; then
-              fail "docker compose up failed"
-            fi
-
-            compose -f docker-compose.prod.yml ps || true
             docker_run image prune -f || true
