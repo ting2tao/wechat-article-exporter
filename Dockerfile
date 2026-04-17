@@ -25,7 +25,8 @@ RUN yarn build
 
 
 # 运行时层
-FROM node:22-alpine
+# better-sqlite3 是原生模块，运行时必须与构建阶段保持同一 libc 环境。
+FROM node:22-bookworm-slim
 
 ARG VERSION=unknown
 
