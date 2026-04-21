@@ -9,15 +9,22 @@ export default defineEventHandler(async event => {
     return { ok: true };
   }
 
-  await upsertTrackedAccounts(accounts);
-
   const authKey = getAuthKeyFromRequest(event);
-  if (authKey) {
-    await updateSchedulerConfig({
-      authKey,
-      authBoundAt: Date.now(),
+  if (!authKey) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: '缺少公众号登录作用域',
     });
   }
+
+  await upsertTrackedAccounts(accounts, authKey);
+  await updateSchedulerConfig(
+    {
+      authKey,
+      authBoundAt: Date.now(),
+    },
+    authKey
+  );
 
   return { ok: true };
 });

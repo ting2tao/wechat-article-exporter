@@ -6,7 +6,11 @@ function appendSecure(base: string, secure: boolean) {
   return secure ? `${base}; Secure` : base;
 }
 
-export function buildMpAuthCookies(authKey: string, secure: boolean, expiresAt = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000)) {
+export function buildMpAuthCookies(
+  authKey: string,
+  secure: boolean,
+  expiresAt = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000)
+) {
   const expiredAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   return [

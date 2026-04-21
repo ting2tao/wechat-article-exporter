@@ -1,4 +1,4 @@
-import { db } from './db';
+import { getDb } from './db';
 
 export interface HtmlAsset {
   fakeid: string;
@@ -13,6 +13,7 @@ export interface HtmlAsset {
  * @param html 缓存
  */
 export async function updateHtmlCache(html: HtmlAsset): Promise<boolean> {
+  const db = getDb();
   return db.transaction('rw', 'html', async () => {
     await db.html.put(html);
     return true;
@@ -24,6 +25,7 @@ export async function upsertHtmlCaches(htmlAssets: HtmlAsset[]): Promise<void> {
     return;
   }
 
+  const db = getDb();
   await db.transaction('rw', 'html', async () => {
     await db.html.bulkPut(htmlAssets);
   });
@@ -34,9 +36,11 @@ export async function upsertHtmlCaches(htmlAssets: HtmlAsset[]): Promise<void> {
  * @param url
  */
 export async function getHtmlCache(url: string): Promise<HtmlAsset | undefined> {
+  const db = getDb();
   return db.html.get(url);
 }
 
 export async function getHtmlCacheUrlsByFakeid(fakeid: string): Promise<string[]> {
+  const db = getDb();
   return db.html.where('fakeid').equals(fakeid).primaryKeys() as Promise<string[]>;
 }

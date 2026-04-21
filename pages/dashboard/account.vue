@@ -11,6 +11,7 @@ import type {
 } from 'ag-grid-community';
 import { AgGridVue } from 'ag-grid-vue3';
 import { defu } from 'defu';
+import { mergeAccountLists } from '#shared/utils/account-sync';
 import { formatTimeStamp } from '#shared/utils/helpers';
 import { getArticleList } from '~/apis';
 import { deleteWorkerAccounts, getWorkerAccounts, upsertWorkerAccounts } from '~/apis/worker';
@@ -25,8 +26,7 @@ import { IMAGE_PROXY, websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { deleteAccountData } from '~/store/v2';
 import { getArticleCache, hitCache } from '~/store/v2/article';
-import { getAllInfo, getInfoCache, importMpAccounts, replaceAllInfo, type MpAccount } from '~/store/v2/info';
-import { mergeAccountLists } from '#shared/utils/account-sync';
+import { getAllInfo, getInfoCache, importMpAccounts, type MpAccount, replaceAllInfo } from '~/store/v2/info';
 import type { AccountManifest } from '~/types/account';
 import type { Preferences } from '~/types/preferences';
 import { exportAccountJsonFile } from '~/utils/exporter';

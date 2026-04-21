@@ -8,7 +8,10 @@ function getFreshnessScore(article: AppMsgExWithFakeID) {
   return article.update_time || article.create_time || 0;
 }
 
-function mergeArticle(local: AppMsgExWithFakeID | undefined, worker: AppMsgExWithFakeID | undefined): AppMsgExWithFakeID {
+function mergeArticle(
+  local: AppMsgExWithFakeID | undefined,
+  worker: AppMsgExWithFakeID | undefined
+): AppMsgExWithFakeID {
   if (!local && !worker) {
     throw new Error('mergeArticle requires at least one article');
   }

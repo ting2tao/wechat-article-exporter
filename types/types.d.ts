@@ -2,6 +2,7 @@ export interface LoginAccount {
   nickname: string;
   avatar: string;
   expires: string;
+  scopeId?: string;
   err?: string;
 }
 

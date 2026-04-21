@@ -14,7 +14,7 @@ export function getInterruptedTaskRecoveryPatch(state: WorkerSchedulerState, fin
     patch.downloadRunning = false;
     patch.lastDownloadFinishedAt = finishedAt;
     patch.lastDownloadSummary = '';
-    patch.lastDownloadError = '后台任务在服务重启后被中断，请重新执行导出任务';
+    patch.lastDownloadError = '后台任务在服务重启后被中断，请重新执行文章抓取任务';
   }
 
   return patch;

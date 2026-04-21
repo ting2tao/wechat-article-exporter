@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const schedulerRecovery = await import(new URL('../server/services/worker/scheduler-recovery.ts', import.meta.url).href);
+const schedulerRecovery = await import(
+  new URL('../server/services/worker/scheduler-recovery.ts', import.meta.url).href
+);
 
 test('getInterruptedTaskRecoveryPatch clears stale sync state after restart', () => {
   const now = 1_776_300_000_000;
@@ -55,6 +57,6 @@ test('getInterruptedTaskRecoveryPatch clears stale download state after restart'
     downloadRunning: false,
     lastDownloadFinishedAt: now,
     lastDownloadSummary: '',
-    lastDownloadError: '后台任务在服务重启后被中断，请重新执行导出任务',
+    lastDownloadError: '后台任务在服务重启后被中断，请重新执行文章抓取任务',
   });
 });

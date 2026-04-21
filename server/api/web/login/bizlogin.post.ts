@@ -88,6 +88,7 @@ export default defineEventHandler(async event => {
       nickname: nick_name,
       avatar: head_img,
       expires: dayjs().add(4, 'days').toString(),
+      scopeId: authKey,
     });
     const headers = new Headers(response.headers);
     headers.set('Content-Length', new TextEncoder().encode(body).length.toString());

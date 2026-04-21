@@ -33,7 +33,7 @@ export async function saveWorkerSchedulerConfig(payload: {
   downloadDateEnd: string;
   alertWebhookUrl: string;
   selectedAccountFakeids: string[];
-  selectedExportFormats: Array<'html' | 'txt' | 'markdown'>;
+  selectedExportFormats?: Array<'html' | 'txt' | 'markdown'>;
 }) {
   return request<WorkerSchedulerSnapshot>('/api/web/worker/scheduler', {
     method: 'POST',

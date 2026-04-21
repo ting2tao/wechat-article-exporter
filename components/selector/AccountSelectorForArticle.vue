@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { mergeAccountLists } from '#shared/utils/account-sync';
 import { getWorkerAccounts } from '~/apis/worker';
-import { getAllInfo, replaceAllInfo, type MpAccount } from '~/store/v2/info';
+import { getAllInfo, type MpAccount, replaceAllInfo } from '~/store/v2/info';
 
 // 已缓存的公众号信息
 const cachedAccountInfos = reactive(await getAllInfo());

@@ -157,10 +157,6 @@ export function validateSchedulerConfigSelection(config: {
     return '启用后台任务前，请至少选择一个公众号';
   }
 
-  if (config.downloadEnabled && config.selectedExportFormats.length === 0) {
-    return '启用定时导出前，请至少选择一种导出格式';
-  }
-
   if (!config.downloadEnabled) {
     return '';
   }
@@ -189,21 +185,11 @@ export function validateSchedulerConfigSelection(config: {
   return '';
 }
 
-export function shouldSkipScheduledExport(
-  selectedAccountFakeids: string[],
-  selectedExportFormats: ScheduledExportFormat[]
-) {
+export function shouldSkipScheduledContentFetch(selectedAccountFakeids: string[]) {
   if (selectedAccountFakeids.length === 0) {
     return {
       shouldSkip: true,
-      summary: '未选择公众号，已跳过本轮定时导出',
-    };
-  }
-
-  if (selectedExportFormats.length === 0) {
-    return {
-      shouldSkip: true,
-      summary: '未选择导出格式，已跳过本轮定时导出',
+      summary: '未选择公众号，已跳过本轮定时抓取',
     };
   }
 
@@ -213,23 +199,8 @@ export function shouldSkipScheduledExport(
   };
 }
 
-export function formatScheduledExportFormats(selectedExportFormats: ScheduledExportFormat[]) {
-  const labels: Record<ScheduledExportFormat, string> = {
-    html: 'HTML',
-    txt: 'TXT',
-    markdown: 'Markdown',
-  };
-
-  return selectedExportFormats.map(format => labels[format]).join('、');
-}
-
-export function buildScheduledExportSummary(summary: {
-  completed: number;
-  failed: number;
-  deleted: number;
-  exportedFormats: ScheduledExportFormat[];
-}) {
-  return `已处理 ${summary.completed + summary.failed + summary.deleted} 篇文章，成功 ${summary.completed} 篇，失败 ${summary.failed} 篇，已删除 ${summary.deleted} 篇，导出格式: ${formatScheduledExportFormats(summary.exportedFormats)}`;
+export function buildScheduledContentFetchSummary(summary: { completed: number; failed: number; deleted: number }) {
+  return `已处理 ${summary.completed + summary.failed + summary.deleted} 篇文章，成功抓取 ${summary.completed} 篇，失败 ${summary.failed} 篇，已删除 ${summary.deleted} 篇`;
 }
 
 export function normalizeWorkerSchedulerConfig(

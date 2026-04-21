@@ -1,4 +1,5 @@
 import { listTrackedArticlesByFakeid } from '~/server/services/worker/repository';
+import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
 
 export default defineEventHandler(async event => {
   const fakeid = getQuery(event).fakeid;
@@ -9,5 +10,10 @@ export default defineEventHandler(async event => {
     });
   }
 
-  return listTrackedArticlesByFakeid(fakeid.trim());
+  const authKey = getAuthKeyFromRequest(event);
+  if (!authKey) {
+    return [];
+  }
+
+  return listTrackedArticlesByFakeid(fakeid.trim(), authKey);
 });

@@ -5,6 +5,7 @@ import TurndownService from 'turndown';
 import type { ScheduledExportFormat } from '~/types/worker-scheduler';
 
 interface ExportArticleFormatsInput {
+  scopeId: string;
   fakeid: string;
   aid: string;
   title: string;
@@ -77,12 +78,13 @@ function sanitizeFilenamePart(value: string) {
 
 async function writeExportFile(
   outputRoot: string,
+  scopeId: string,
   fakeid: string,
   format: ScheduledExportFormat,
   filename: string,
   content: string
 ) {
-  const formatDir = path.join(outputRoot, fakeid, format);
+  const formatDir = path.join(outputRoot, scopeId, fakeid, format);
   await fs.mkdir(formatDir, { recursive: true });
   const filePath = path.join(formatDir, filename);
   await fs.writeFile(filePath, content, 'utf8');
@@ -106,19 +108,40 @@ export async function exportArticleFormats(input: ExportArticleFormatsInput): Pr
 
   try {
     if (requestedFormats.includes('html') && normalizedHtml) {
-      files.html = await writeExportFile(input.outputRoot, input.fakeid, 'html', `${baseName}.html`, normalizedHtml);
+      files.html = await writeExportFile(
+        input.outputRoot,
+        input.scopeId,
+        input.fakeid,
+        'html',
+        `${baseName}.html`,
+        normalizedHtml
+      );
       writtenFormats.push('html');
     }
 
     if (requestedFormats.includes('txt') && normalizedText !== null) {
-      files.txt = await writeExportFile(input.outputRoot, input.fakeid, 'txt', `${baseName}.txt`, normalizedText);
+      files.txt = await writeExportFile(
+        input.outputRoot,
+        input.scopeId,
+        input.fakeid,
+        'txt',
+        `${baseName}.txt`,
+        normalizedText
+      );
       writtenFormats.push('txt');
     }
 
     if (requestedFormats.includes('markdown') && normalizedHtml) {
       const turndownService = new TurndownService();
       const markdown = turndownService.turndown(normalizedHtml);
-      files.markdown = await writeExportFile(input.outputRoot, input.fakeid, 'markdown', `${baseName}.md`, markdown);
+      files.markdown = await writeExportFile(
+        input.outputRoot,
+        input.scopeId,
+        input.fakeid,
+        'markdown',
+        `${baseName}.md`,
+        markdown
+      );
       writtenFormats.push('markdown');
     }
   } catch (error) {

@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
+import { buildScopedDexieName, getStoredScopeId } from '~/utils/auth-scope';
 import type { ArticleAsset } from './article';
 import type { Asset } from './assets';
 import type { DebugAsset } from './debug';
@@ -29,7 +30,8 @@ type MetadataRecord = {
   commentNum: number;
 };
 
-const db = new Dexie('exporter.wxdown.online') as Dexie & {
+export type ScopedDexie = Dexie & {
+  api: Table<{ name: string; account: string; call_time: number }, number>;
   article: Table<ArticleAsset, string>;
   asset: EntityTable<Asset, 'url'>;
   comment: EntityTable<CommentAssetRecord, 'url'>;
@@ -42,32 +44,48 @@ const db = new Dexie('exporter.wxdown.online') as Dexie & {
   'resource-map': EntityTable<ResourceMapAsset, 'url'>;
 };
 
-db.version(1).stores({
-  api: '++, name, account, call_time',
-  article: ', fakeid, create_time, link', // 主键 fakeid:aid
-  asset: 'url',
-  comment: 'url',
-  comment_reply: ', url, contentID', // 主键 url:contentID
-  debug: 'url',
-  html: 'url',
-  info: 'fakeid',
-  metadata: 'url',
-  resource: 'url',
-  'resource-map': 'url',
-});
+const dbCache = new Map<string, ScopedDexie>();
 
-db.version(2).stores({
-  asset: 'url, fakeid',
-  comment: 'url, fakeid',
-  comment_reply: ', url, contentID, fakeid',
-  html: 'url, fakeid',
-  metadata: 'url, fakeid',
-  resource: 'url, fakeid',
-  'resource-map': 'url, fakeid',
-});
+function createDb(scopeId: string): ScopedDexie {
+  const db = new Dexie(buildScopedDexieName(scopeId)) as ScopedDexie;
 
-db.version(3).stores({
-  debug: 'url, fakeid',
-});
+  db.version(1).stores({
+    api: '++, name, account, call_time',
+    article: ', fakeid, create_time, link',
+    asset: 'url',
+    comment: 'url',
+    comment_reply: ', url, contentID',
+    debug: 'url',
+    html: 'url',
+    info: 'fakeid',
+    metadata: 'url',
+    resource: 'url',
+    'resource-map': 'url',
+  });
 
-export { db };
+  db.version(2).stores({
+    asset: 'url, fakeid',
+    comment: 'url, fakeid',
+    comment_reply: ', url, contentID, fakeid',
+    html: 'url, fakeid',
+    metadata: 'url, fakeid',
+    resource: 'url, fakeid',
+    'resource-map': 'url, fakeid',
+  });
+
+  db.version(3).stores({
+    debug: 'url, fakeid',
+  });
+
+  return db;
+}
+
+export function getDb(scopeId = getStoredScopeId() || 'anonymous'): ScopedDexie {
+  let db = dbCache.get(scopeId);
+  if (!db) {
+    db = createDb(scopeId);
+    dbCache.set(scopeId, db);
+  }
+
+  return db;
+}
