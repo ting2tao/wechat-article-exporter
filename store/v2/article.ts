@@ -1,5 +1,5 @@
 import type { AppMsgExWithFakeID, PublishInfo, PublishPage } from '~/types/types';
-import { db } from './db';
+import { getDb } from './db';
 import { type MpAccount, updateInfoCache } from './info';
 
 export type ArticleAsset = AppMsgExWithFakeID;
@@ -10,6 +10,7 @@ export type ArticleAsset = AppMsgExWithFakeID;
  * @param publish_page
  */
 export async function updateArticleCache(account: MpAccount, publish_page: PublishPage) {
+  const db = getDb();
   await db.transaction('rw', ['article', 'info'], async () => {
     const keys = await db.article.toCollection().keys();
 
@@ -57,6 +58,7 @@ export async function updateArticleCache(account: MpAccount, publish_page: Publi
  * @param create_time 创建时间
  */
 export async function hitCache(fakeid: string, create_time: number): Promise<boolean> {
+  const db = getDb();
   const count = await db.article
     .where('fakeid')
     .equals(fakeid)
@@ -71,6 +73,7 @@ export async function hitCache(fakeid: string, create_time: number): Promise<boo
  * @param create_time 创建时间
  */
 export async function getArticleCache(fakeid: string, create_time: number): Promise<AppMsgExWithFakeID[]> {
+  const db = getDb();
   return db.article
     .where('fakeid')
     .equals(fakeid)
@@ -84,6 +87,7 @@ export async function upsertArticleCacheRecords(articles: AppMsgExWithFakeID[]):
     return;
   }
 
+  const db = getDb();
   await db.transaction('rw', 'article', async () => {
     const values = articles.map(article => ({ ...article, _status: article._status || '' }));
     const keys = articles.map(article => `${article.fakeid}:${article.aid}`);
@@ -96,6 +100,7 @@ export async function upsertArticleCacheRecords(articles: AppMsgExWithFakeID[]):
  * @param url
  */
 export async function getArticleByLink(url: string): Promise<AppMsgExWithFakeID> {
+  const db = getDb();
   const article = await db.article.where('link').equals(url).first();
   if (!article) {
     throw new Error(`Article(${url}) does not exist`);
@@ -105,6 +110,7 @@ export async function getArticleByLink(url: string): Promise<AppMsgExWithFakeID>
 
 // 根据 url 获取 SINGLE_ARTICLE_FAKEID 文章对象
 export async function getSingleArticleByLink(url: string): Promise<AppMsgExWithFakeID> {
+  const db = getDb();
   const article = await db.article
     .where('link')
     .equals(url)
@@ -123,6 +129,7 @@ export async function getSingleArticleByLink(url: string): Promise<AppMsgExWithF
  * @param is_deleted
  */
 export async function articleDeleted(url: string, is_deleted = true): Promise<void> {
+  const db = getDb();
   await db.transaction('rw', 'article', async () => {
     await db.article
       .where('link')
@@ -139,6 +146,7 @@ export async function articleDeleted(url: string, is_deleted = true): Promise<vo
  * @param status
  */
 export async function updateArticleStatus(url: string, status: string): Promise<void> {
+  const db = getDb();
   await db.transaction('rw', 'article', async () => {
     await db.article
       .where('link')
@@ -155,6 +163,7 @@ export async function updateArticleStatus(url: string, status: string): Promise<
  * @param fakeid
  */
 export async function updateArticleFakeid(url: string, fakeid: string): Promise<void> {
+  const db = getDb();
   await db.transaction('rw', 'article', async () => {
     await db.article
       .where('link')

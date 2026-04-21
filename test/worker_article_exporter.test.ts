@@ -18,6 +18,7 @@ test('exportArticleFormats writes only the selected per-article formats', async 
   const html = await fs.promises.readFile(sampleHtmlPath, 'utf8');
 
   const result = await exportArticleFormats({
+    scopeId: 'scope-a',
     fakeid: 'f1',
     aid: 'a1',
     title: '示例文章',

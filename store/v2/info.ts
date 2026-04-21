@@ -1,4 +1,4 @@
-import { db } from './db';
+import { getDb } from './db';
 
 export interface MpAccount {
   fakeid: string;
@@ -25,6 +25,7 @@ export interface MpAccount {
  * @param mpAccount
  */
 export async function updateInfoCache(mpAccount: MpAccount): Promise<boolean> {
+  const db = getDb();
   return db.transaction('rw', 'info', async () => {
     let infoCache = await db.info.get(mpAccount.fakeid);
     if (infoCache) {
@@ -56,6 +57,7 @@ export async function updateInfoCache(mpAccount: MpAccount): Promise<boolean> {
 }
 
 export async function updateLastUpdateTime(fakeid: string): Promise<boolean> {
+  const db = getDb();
   return db.transaction('rw', 'info', async () => {
     let infoCache = await db.info.get(fakeid);
     if (infoCache) {
@@ -71,14 +73,17 @@ export async function updateLastUpdateTime(fakeid: string): Promise<boolean> {
  * @param fakeid
  */
 export async function getInfoCache(fakeid: string): Promise<MpAccount | undefined> {
+  const db = getDb();
   return db.info.get(fakeid);
 }
 
 export async function getAllInfo(): Promise<MpAccount[]> {
+  const db = getDb();
   return db.info.toArray();
 }
 
 export async function replaceAllInfo(mpAccounts: MpAccount[]): Promise<void> {
+  const db = getDb();
   await db.transaction('rw', 'info', async () => {
     await db.info.bulkPut(mpAccounts);
   });

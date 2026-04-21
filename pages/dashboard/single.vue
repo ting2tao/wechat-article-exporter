@@ -24,9 +24,10 @@ import toastFactory from '~/composables/toast';
 import { websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { articleDeleted, updateArticleFakeid, updateArticleStatus } from '~/store/v2/article';
-import { db } from '~/store/v2/db';
+import { getDb } from '~/store/v2/db';
 import { getHtmlCache } from '~/store/v2/html';
 import type { AppMsgExWithFakeID } from '~/types/types';
+import { getStoredScopeId } from '~/utils/auth-scope';
 import { createBooleanColumnFilterParams, createDateColumnFilterParams } from '~/utils/grid';
 
 useHead({
@@ -55,7 +56,10 @@ interface SingleArticleRow {
 const toast = toastFactory();
 const inputUrl = ref('');
 
-const globalRowData = useLocalStorage<SingleArticleRow[]>('single-article:rows', []);
+const globalRowData = useLocalStorage<SingleArticleRow[]>(
+  `single-article:rows:${getStoredScopeId() || 'anonymous'}`,
+  []
+);
 if (!globalRowData.value) {
   globalRowData.value = [];
 }
@@ -300,6 +304,7 @@ function buildVirtualArticle(row: SingleArticleRow): AppMsgExWithFakeID {
 }
 
 function upsertArticleStub(row: SingleArticleRow) {
+  const db = getDb();
   return db.article.put(buildVirtualArticle(row), `${row.fakeid}:${row.aid}`);
 }
 
@@ -402,6 +407,7 @@ async function downloadRows(targetRows: SingleArticleRow[], options: { silent?: 
 }
 
 async function updateRowFromHtml(row: SingleArticleRow) {
+  const db = getDb();
   const cache = await getHtmlCache(row.link);
   if (!cache) return;
   const html = await cache.file.text();
@@ -467,6 +473,7 @@ const {
 } = useExporter();
 
 async function deleteRowData(row: SingleArticleRow) {
+  const db = getDb();
   const key = `${row.fakeid}:${row.aid}`;
   await db.transaction('rw', ['article', 'html'], async () => {
     await db.article.delete(key);

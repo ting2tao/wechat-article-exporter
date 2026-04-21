@@ -22,10 +22,10 @@ export default defineEventHandler(async event => {
     selectedExportFormats?: Array<'html' | 'txt' | 'markdown'>;
   }>(event);
 
-  const current = await getSchedulerConfig();
+  const authKey = getAuthKeyFromRequest(event);
+  const current = await getSchedulerConfig(authKey);
   const wantsEnable =
     Boolean(body.syncEnabled ?? current.syncEnabled) || Boolean(body.downloadEnabled ?? current.downloadEnabled);
-  const authKey = getAuthKeyFromRequest(event);
 
   if (wantsEnable && !authKey && !current.authBound) {
     throw createError({
@@ -56,23 +56,27 @@ export default defineEventHandler(async event => {
     });
   }
 
-  await updateSchedulerConfig({
-    syncEnabled: body.syncEnabled ?? current.syncEnabled,
-    syncIntervalMinutes: Math.max(1, Number(body.syncIntervalMinutes) || current.syncIntervalMinutes),
-    downloadEnabled: body.downloadEnabled ?? current.downloadEnabled,
-    downloadIntervalMinutes: Math.max(1, Number(body.downloadIntervalMinutes) || current.downloadIntervalMinutes),
-    downloadBatchSize: Math.max(1, Number(body.downloadBatchSize) || current.downloadBatchSize),
-    downloadDateRangeType: nextSelection.downloadDateRangeType,
-    downloadRecentDays: nextSelection.downloadRecentDays,
-    downloadDateStart: nextSelection.downloadDateStart,
-    downloadDateEnd: nextSelection.downloadDateEnd,
-    alertWebhookUrl: body.alertWebhookUrl?.trim() ?? current.alertWebhookUrl,
-    selectedAccountFakeids: nextSelection.selectedAccountFakeids,
-    selectedExportFormats: nextSelection.selectedExportFormats,
-    authKey: authKey || undefined,
-    authBoundAt: authKey ? Date.now() : undefined,
-  });
-  await refreshWorkerSchedule();
+  const scopeId = authKey || null;
+  await updateSchedulerConfig(
+    {
+      syncEnabled: body.syncEnabled ?? current.syncEnabled,
+      syncIntervalMinutes: Math.max(1, Number(body.syncIntervalMinutes) || current.syncIntervalMinutes),
+      downloadEnabled: body.downloadEnabled ?? current.downloadEnabled,
+      downloadIntervalMinutes: Math.max(1, Number(body.downloadIntervalMinutes) || current.downloadIntervalMinutes),
+      downloadBatchSize: Math.max(1, Number(body.downloadBatchSize) || current.downloadBatchSize),
+      downloadDateRangeType: nextSelection.downloadDateRangeType,
+      downloadRecentDays: nextSelection.downloadRecentDays,
+      downloadDateStart: nextSelection.downloadDateStart,
+      downloadDateEnd: nextSelection.downloadDateEnd,
+      alertWebhookUrl: body.alertWebhookUrl?.trim() ?? current.alertWebhookUrl,
+      selectedAccountFakeids: nextSelection.selectedAccountFakeids,
+      selectedExportFormats: nextSelection.selectedExportFormats,
+      authKey: authKey || undefined,
+      authBoundAt: authKey ? Date.now() : undefined,
+    },
+    scopeId
+  );
+  await refreshWorkerSchedule(scopeId);
 
-  return getSchedulerSnapshot();
+  return getSchedulerSnapshot(scopeId);
 });

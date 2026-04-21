@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const schedulerRecovery = await import(new URL('../server/services/worker/scheduler-recovery.ts', import.meta.url).href);
+const schedulerRecovery = await import(
+  new URL('../server/services/worker/scheduler-recovery.ts', import.meta.url).href
+);
 
 test('getInterruptedTaskRecoveryPatch clears stale sync state after restart', () => {
   const now = 1_776_300_000_000;

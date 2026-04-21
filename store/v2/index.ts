@@ -1,7 +1,8 @@
-import { db } from './db';
+import { getDb } from './db';
 
 // 删除公众号数据
 export async function deleteAccountData(ids: string[]): Promise<void> {
+  const db = getDb();
   return db.transaction(
     'rw',
     [

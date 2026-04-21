@@ -85,20 +85,23 @@ test('mergeAccountLists keeps newer local cache when worker snapshot is older', 
 });
 
 test('mergeAccountLists includes worker-only accounts so background-synced rows are visible', () => {
-  const merged = merge.mergeAccountLists([], [
-    {
-      fakeid: 'f2',
-      nickname: 'WorkerOnly',
-      round_head_img: 'worker-only.png',
-      completed: false,
-      count: 30,
-      articles: 30,
-      total_count: 100,
-      create_time: 2,
-      update_time: 210,
-      last_update_time: 205,
-    },
-  ]);
+  const merged = merge.mergeAccountLists(
+    [],
+    [
+      {
+        fakeid: 'f2',
+        nickname: 'WorkerOnly',
+        round_head_img: 'worker-only.png',
+        completed: false,
+        count: 30,
+        articles: 30,
+        total_count: 100,
+        create_time: 2,
+        update_time: 210,
+        last_update_time: 205,
+      },
+    ]
+  );
 
   assert.equal(merged.length, 1);
   assert.equal(merged[0].fakeid, 'f2');

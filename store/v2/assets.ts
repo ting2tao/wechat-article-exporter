@@ -1,4 +1,4 @@
-import { db } from './db';
+import { getDb } from './db';
 
 interface Asset {
   url: string;
@@ -13,6 +13,7 @@ export type { Asset };
  * @param asset
  */
 export async function updateAssetCache(asset: Asset): Promise<boolean> {
+  const db = getDb();
   return db.transaction('rw', 'asset', () => {
     db.asset.put(asset);
     return true;
@@ -24,6 +25,7 @@ export async function updateAssetCache(asset: Asset): Promise<boolean> {
  * @param url
  */
 export async function getAssetCache(url: string): Promise<Asset | undefined> {
+  const db = getDb();
   db.transaction('r', 'asset', () => {});
   return db.asset.get(url);
 }

@@ -11,9 +11,10 @@ export default defineEventHandler(async event => {
     });
   }
 
-  const started = await queueWorkerTask(body.task, getAuthKeyFromRequest(event));
+  const authKey = getAuthKeyFromRequest(event);
+  const started = await queueWorkerTask(body.task, authKey);
   return {
     started,
-    snapshot: await getSchedulerSnapshot(),
+    snapshot: await getSchedulerSnapshot(authKey),
   };
 });

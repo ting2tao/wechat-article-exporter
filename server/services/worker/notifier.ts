@@ -8,6 +8,7 @@ interface WorkerNotifyPayload {
   lines?: string[];
   dedupeKey?: string;
   cooldownMs?: number;
+  scopeId?: string | null;
 }
 
 function getStorage() {
@@ -36,12 +37,13 @@ async function markNotificationSent(dedupeKey?: string, cooldownMs = 0) {
 }
 
 export async function notifyWorkerStatus(payload: WorkerNotifyPayload) {
-  const webhookUrl = (await getSchedulerConfig()).alertWebhookUrl.trim();
+  const webhookUrl = (await getSchedulerConfig(payload.scopeId)).alertWebhookUrl.trim();
   if (!webhookUrl) {
     return false;
   }
 
-  if (!(await shouldSendNotification(payload.dedupeKey, payload.cooldownMs))) {
+  const dedupeKey = payload.scopeId ? `${payload.scopeId}:${payload.dedupeKey || payload.title}` : payload.dedupeKey;
+  if (!(await shouldSendNotification(dedupeKey, payload.cooldownMs))) {
     return false;
   }
 
@@ -71,7 +73,7 @@ export async function notifyWorkerStatus(payload: WorkerNotifyPayload) {
       throw new Error(result.errmsg || `errcode=${result.errcode}`);
     }
 
-    await markNotificationSent(payload.dedupeKey, payload.cooldownMs);
+    await markNotificationSent(dedupeKey, payload.cooldownMs);
     return true;
   } catch (error) {
     console.error('企业微信 webhook 推送失败:', error);

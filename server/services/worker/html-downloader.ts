@@ -30,10 +30,10 @@ function getProxyAuthorization() {
   return process.env.WORKER_PROXY_AUTHORIZATION || '';
 }
 
-async function writeHtmlFile(fakeid: string, aid: string, html: string) {
+async function writeHtmlFile(scopeId: string, fakeid: string, aid: string, html: string) {
   const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
   const baseDir = path.resolve(process.cwd(), process.env.WORKER_HTML_DIR || '.data/worker-html');
-  const accountDir = path.join(baseDir, fakeid);
+  const accountDir = path.join(baseDir, scopeId, fakeid);
   await fs.mkdir(accountDir, { recursive: true });
   const filePath = path.join(accountDir, `${aid.replace(/[^a-zA-Z0-9_-]/g, '_')}.html`);
   await fs.writeFile(filePath, html, 'utf8');
@@ -75,6 +75,7 @@ export async function downloadPendingHtmlBatch(
   limit: number,
   fakeids: string[] = [],
   formats: ScheduledExportFormat[] = [],
+  scopeId: string,
   dateFilter?: {
     downloadDateRangeType: 'all' | 'recentDays' | 'customRange';
     downloadRecentDays: number;
@@ -90,11 +91,15 @@ export async function downloadPendingHtmlBatch(
       downloadDateEnd: '',
     }
   );
-  const articles = await listPendingHtmlArticles(limit, {
-    fakeids,
-    createTimeStart: resolvedDateRange.startTime,
-    createTimeEnd: resolvedDateRange.endTime,
-  });
+  const articles = await listPendingHtmlArticles(
+    limit,
+    {
+      fakeids,
+      createTimeStart: resolvedDateRange.startTime,
+      createTimeEnd: resolvedDateRange.endTime,
+    },
+    scopeId
+  );
   if (articles.length === 0) {
     return {
       completed: 0,
@@ -122,8 +127,9 @@ export async function downloadPendingHtmlBatch(
       const html = await fetchHtmlThroughProxy(article.link, proxyManager);
       const [status] = validateHTMLContent(html);
       if (status === 'Success') {
-        const filePath = await writeHtmlFile(article.fakeid, article.aid, html);
+        const filePath = await writeHtmlFile(scopeId, article.fakeid, article.aid, html);
         await exportArticleFormats({
+          scopeId,
           fakeid: article.fakeid,
           aid: article.aid,
           title: article.title,
@@ -131,10 +137,10 @@ export async function downloadPendingHtmlBatch(
           formats,
           outputRoot,
         });
-        await markArticleHtmlDownloaded(article.id, filePath);
+        await markArticleHtmlDownloaded(article.id, filePath, scopeId);
         summary.completed++;
       } else if (status === 'Deleted') {
-        await markArticleDeleted(article.id);
+        await markArticleDeleted(article.id, scopeId);
         summary.deleted++;
       } else {
         summary.failed++;

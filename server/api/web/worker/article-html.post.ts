@@ -1,4 +1,5 @@
 import { readTrackedArticleHtmlBatch } from '~/server/services/worker/repository';
+import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
 
 export default defineEventHandler(async event => {
   const body = await readBody<{ fakeid?: string; aids?: string[] }>(event);
@@ -15,5 +16,10 @@ export default defineEventHandler(async event => {
     return [];
   }
 
-  return readTrackedArticleHtmlBatch(fakeid, aids);
+  const authKey = getAuthKeyFromRequest(event);
+  if (!authKey) {
+    return [];
+  }
+
+  return readTrackedArticleHtmlBatch(fakeid, aids, authKey);
 });
