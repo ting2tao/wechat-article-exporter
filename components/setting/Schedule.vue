@@ -18,9 +18,7 @@
           </div>
         </div>
 
-        <p class="setting-card__panel-note">
-          后台同步与定时导出都会限制在这里选中的公众号范围内。未选择时，不会默认包含全部公众号。
-        </p>
+        <p class="setting-card__panel-note">后台同步与定时文章抓取都会限制在这里选中的公众号范围内。未选择时，不会默认包含全部公众号。</p>
 
         <div class="setting-card__field-stack">
           <div class="setting-card__field-group">
@@ -60,28 +58,6 @@
             </USelectMenu>
           </div>
 
-          <div class="setting-card__field-group">
-            <p class="setting-card__field-label">定时导出格式</p>
-            <USelectMenu
-              v-model="form.selectedExportFormats"
-              multiple
-              class="setting-card__select"
-              placeholder="请选择逐篇导出格式"
-              :options="scheduledExportFormatOptions"
-              value-attribute="value"
-              option-attribute="label"
-            >
-              <template #option="{ option: format }">
-                <div class="setting-card__select-option">
-                  <p class="setting-card__select-option-title">{{ format.label }}</p>
-                  <p class="setting-card__select-option-subtitle">{{ format.remark }}</p>
-                </div>
-              </template>
-            </USelectMenu>
-            <p class="setting-card__panel-note">
-              仅支持 HTML、TXT、Markdown。Word、Excel 和 JSON 仍保留为手动导出，不进入定时任务。
-            </p>
-          </div>
         </div>
       </div>
 
@@ -119,7 +95,7 @@
           <p class="setting-card__stat-value">{{ snapshot?.stats.trackedArticles ?? 0 }}</p>
         </div>
         <div class="setting-card__stat">
-          <p class="setting-card__stat-label">已下载 HTML</p>
+          <p class="setting-card__stat-label">已抓取 HTML</p>
           <p class="setting-card__stat-value">{{ snapshot?.stats.downloadedHtmlArticles ?? 0 }}</p>
         </div>
       </div>
@@ -199,7 +175,7 @@
       <div class="setting-card__panel">
         <div class="setting-card__panel-head">
           <div class="setting-card__panel-heading">
-            <p class="setting-card__panel-title">定时导出</p>
+            <p class="setting-card__panel-title">定时抓取文章内容</p>
             <span class="setting-card__status" :class="{ 'setting-card__status--active': form.downloadEnabled }">
               {{ form.downloadEnabled ? '已启用' : '已停用' }}
             </span>
@@ -253,7 +229,7 @@
             type="number"
             min="1"
             class="setting-card__field setting-card__field--mono"
-            placeholder="导出间隔"
+            placeholder="抓取间隔"
           >
             <template #trailing>
               <span class="text-xs text-gray-500">分钟</span>
@@ -264,7 +240,7 @@
             type="number"
             min="1"
             class="setting-card__field setting-card__field--mono"
-            placeholder="每轮导出上限"
+            placeholder="每轮抓取上限"
           >
             <template #trailing>
               <span class="text-xs text-gray-500">篇</span>
@@ -279,12 +255,12 @@
             :disabled="snapshot?.state.syncRunning"
             @click="runTask('download')"
           >
-            立即导出
+            立即抓取
           </UButton>
         </div>
 
         <p class="setting-card__panel-note">
-          按文章发布时间筛选待导出文章。已经成功导出的文章不会重复导出。
+          按文章发布时间筛选待抓取文章。已经抓取过内容的文章不会重复抓取。
         </p>
 
         <div class="setting-card__detail-grid">
@@ -325,17 +301,7 @@ import dayjs from 'dayjs';
 import { getWorkerSchedulerSnapshot, runWorkerTask, saveWorkerSchedulerConfig } from '~/apis/worker';
 import toastFactory from '~/composables/toast';
 import { getAllInfo, type MpAccount } from '~/store/v2/info';
-import type {
-  ScheduledExportDateRangeType,
-  ScheduledExportFormat,
-  WorkerSchedulerSnapshot,
-} from '~/types/worker-scheduler';
-
-interface ScheduledExportFormatOption {
-  label: string;
-  value: ScheduledExportFormat;
-  remark: string;
-}
+import type { ScheduledExportDateRangeType, WorkerSchedulerSnapshot } from '~/types/worker-scheduler';
 
 interface ScheduledExportDateRangeOption {
   label: string;
@@ -346,7 +312,6 @@ interface ScheduledExportDateRangeOption {
 interface WorkerSchedulerSnapshotView extends Omit<WorkerSchedulerSnapshot, 'config'> {
   config: WorkerSchedulerSnapshot['config'] & {
     selectedAccountFakeids: string[];
-    selectedExportFormats: ScheduledExportFormat[];
   };
 }
 
@@ -366,15 +331,9 @@ const accountOptions = [...(await getAllInfo())].sort((a: MpAccount, b: MpAccoun
   return (a.nickname || a.fakeid).localeCompare(b.nickname || b.fakeid, 'zh-Hans-CN');
 });
 
-const scheduledExportFormatOptions: ScheduledExportFormatOption[] = [
-  { label: 'HTML', value: 'html', remark: '适合保留原始排版' },
-  { label: 'TXT', value: 'txt', remark: '纯文本逐篇导出' },
-  { label: 'Markdown', value: 'markdown', remark: '便于后续整理编辑' },
-];
-
 const downloadDateRangeTypeOptions: ScheduledExportDateRangeOption[] = [
-  { label: '全部时间', value: 'all', remark: '导出未处理过的全部文章' },
-  { label: '最近 N 天', value: 'recentDays', remark: '例如只导出最近 3 天的新文章' },
+  { label: '全部时间', value: 'all', remark: '抓取尚未处理的全部文章内容' },
+  { label: '最近 N 天', value: 'recentDays', remark: '例如只抓取最近 3 天的新文章' },
   { label: '自定义时间', value: 'customRange', remark: '按文章发布时间筛选开始和结束日期' },
 ];
 
@@ -390,7 +349,6 @@ const form = reactive({
   downloadDateEnd: '',
   alertWebhookUrl: '',
   selectedAccountFakeids: [] as string[],
-  selectedExportFormats: [] as ScheduledExportFormat[],
 });
 
 let refreshTimer: number | null = null;
@@ -411,21 +369,6 @@ function normalizeSelectedAccountFakeids(values: unknown) {
   const selected = values
     .map(item => (typeof item === 'string' ? item.trim() : ''))
     .filter((item): item is string => item.length > 0);
-
-  return [...new Set(selected)];
-}
-
-function normalizeSelectedExportFormats(values: unknown) {
-  const allowedFormats = ['html', 'txt', 'markdown'] as const;
-  const allowed = new Set<ScheduledExportFormat>(allowedFormats);
-
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  const selected = values
-    .map(item => (typeof item === 'string' ? item.trim() : ''))
-    .filter((item): item is ScheduledExportFormat => allowed.has(item as ScheduledExportFormat));
 
   return [...new Set(selected)];
 }
@@ -467,7 +410,6 @@ function applySnapshot(value: WorkerSchedulerSnapshotView, syncForm = false) {
     form.downloadDateEnd = normalizeDateInput(value.config.downloadDateEnd);
     form.alertWebhookUrl = value.config.alertWebhookUrl;
     form.selectedAccountFakeids = normalizeSelectedAccountFakeids(value.config.selectedAccountFakeids);
-    form.selectedExportFormats = normalizeSelectedExportFormats(value.config.selectedExportFormats);
     isDirty.value = false;
   } finally {
     suppressDirtyTracking.value = false;
@@ -506,7 +448,6 @@ async function saveConfig() {
       downloadDateEnd: normalizeDateInput(form.downloadDateEnd),
       alertWebhookUrl: form.alertWebhookUrl.trim(),
       selectedAccountFakeids: [...normalizeSelectedAccountFakeids(form.selectedAccountFakeids)],
-      selectedExportFormats: [...normalizeSelectedExportFormats(form.selectedExportFormats)],
     })) as WorkerSchedulerSnapshotView;
     applySnapshot(next, true);
     toast.success('后台任务配置已保存');
@@ -540,7 +481,6 @@ watch(
     form.downloadDateEnd,
     form.alertWebhookUrl,
     form.selectedAccountFakeids.join('\u0001'),
-    form.selectedExportFormats.join('\u0001'),
   ],
   () => {
     if (!suppressDirtyTracking.value) {

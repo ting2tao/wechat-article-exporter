@@ -4,8 +4,7 @@ import test from 'node:test';
 const helpers = await import(new URL('../server/services/worker/config-helpers.ts', import.meta.url).href);
 
 const {
-  buildScheduledExportSummary,
-  formatScheduledExportFormats,
+  buildScheduledContentFetchSummary,
   normalizeScheduledExportDate,
   normalizeScheduledExportDateRangeType,
   normalizeScheduledExportRecentDays,
@@ -13,7 +12,7 @@ const {
   normalizeSelectedExportFormats,
   parseStoredStringArray,
   resolveScheduledExportDateRange,
-  shouldSkipScheduledExport,
+  shouldSkipScheduledContentFetch,
   validateSchedulerConfigSelection,
 } = helpers;
 
@@ -37,40 +36,28 @@ test('scheduled export date controls are normalized', () => {
   assert.equal(normalizeScheduledExportDate('2026-02-28'), '2026-02-28');
 });
 
-test('shouldSkipScheduledExport reports missing accounts before missing formats', () => {
-  assert.deepEqual(shouldSkipScheduledExport([], ['html']), {
+test('shouldSkipScheduledContentFetch reports missing accounts', () => {
+  assert.deepEqual(shouldSkipScheduledContentFetch([]), {
     shouldSkip: true,
-    summary: '未选择公众号，已跳过本轮定时导出',
+    summary: '未选择公众号，已跳过本轮定时抓取',
   });
 });
 
-test('shouldSkipScheduledExport reports missing formats', () => {
-  assert.deepEqual(shouldSkipScheduledExport(['f1'], []), {
-    shouldSkip: true,
-    summary: '未选择导出格式，已跳过本轮定时导出',
-  });
-});
-
-test('shouldSkipScheduledExport allows export when both selections exist', () => {
-  assert.deepEqual(shouldSkipScheduledExport(['f1'], ['html']), {
+test('shouldSkipScheduledContentFetch allows fetch when accounts exist', () => {
+  assert.deepEqual(shouldSkipScheduledContentFetch(['f1']), {
     shouldSkip: false,
     summary: '',
   });
 });
 
-test('formatScheduledExportFormats renders display labels in order', () => {
-  assert.equal(formatScheduledExportFormats(['html', 'markdown']), 'HTML、Markdown');
-});
-
-test('buildScheduledExportSummary includes counts and selected formats', () => {
+test('buildScheduledContentFetchSummary includes counts', () => {
   assert.equal(
-    buildScheduledExportSummary({
+    buildScheduledContentFetchSummary({
       completed: 3,
       failed: 1,
       deleted: 0,
-      exportedFormats: ['html', 'markdown'],
     }),
-    '已处理 4 篇文章，成功 3 篇，失败 1 篇，已删除 0 篇，导出格式: HTML、Markdown'
+    '已处理 4 篇文章，成功抓取 3 篇，失败 1 篇，已删除 0 篇'
   );
 });
 
@@ -93,12 +80,28 @@ test('validateSchedulerConfigSelection blocks invalid enabled states', () => {
       syncEnabled: false,
       downloadEnabled: true,
       selectedAccountFakeids: ['f1'],
-      selectedExportFormats: ['html'],
+      selectedExportFormats: [],
       downloadDateRangeType: 'customRange',
       downloadRecentDays: 3,
       downloadDateStart: '',
       downloadDateEnd: '',
     }),
     '自定义时间范围至少需要填写开始日期或结束日期'
+  );
+});
+
+test('validateSchedulerConfigSelection no longer requires export formats for content fetch', () => {
+  assert.equal(
+    validateSchedulerConfigSelection({
+      syncEnabled: false,
+      downloadEnabled: true,
+      selectedAccountFakeids: ['f1'],
+      selectedExportFormats: [],
+      downloadDateRangeType: 'all',
+      downloadRecentDays: 3,
+      downloadDateStart: '',
+      downloadDateEnd: '',
+    }),
+    ''
   );
 });

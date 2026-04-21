@@ -1,5 +1,8 @@
 import { sleep } from '#shared/utils/helpers';
-import { buildScheduledExportSummary, shouldSkipScheduledExport } from '~/server/services/worker/config-helpers';
+import {
+  buildScheduledContentFetchSummary,
+  shouldSkipScheduledContentFetch,
+} from '~/server/services/worker/config-helpers';
 import { downloadPendingHtmlBatch } from '~/server/services/worker/html-downloader';
 import { checkMpSessionStatus, fetchAccountArticlePage } from '~/server/services/worker/mp-client';
 import { notifyWorkerStatus } from '~/server/services/worker/notifier';
@@ -181,7 +184,7 @@ async function runSyncTaskInternal(scopeId: string) {
 async function runDownloadTaskInternal(scopeId: string) {
   const config = await getSchedulerConfig(scopeId);
 
-  const decision = shouldSkipScheduledExport(config.selectedAccountFakeids, config.selectedExportFormats);
+  const decision = shouldSkipScheduledContentFetch(config.selectedAccountFakeids);
   if (decision.shouldSkip) {
     await updateSchedulerState(
       {
@@ -194,22 +197,16 @@ async function runDownloadTaskInternal(scopeId: string) {
     return decision.summary;
   }
 
-  const summary = await downloadPendingHtmlBatch(
-    config.downloadBatchSize,
-    config.selectedAccountFakeids,
-    config.selectedExportFormats,
-    scopeId,
-    {
-      downloadDateRangeType: config.downloadDateRangeType,
-      downloadRecentDays: config.downloadRecentDays,
-      downloadDateStart: config.downloadDateStart,
-      downloadDateEnd: config.downloadDateEnd,
-    }
-  );
+  const summary = await downloadPendingHtmlBatch(config.downloadBatchSize, config.selectedAccountFakeids, scopeId, {
+    downloadDateRangeType: config.downloadDateRangeType,
+    downloadRecentDays: config.downloadRecentDays,
+    downloadDateStart: config.downloadDateStart,
+    downloadDateEnd: config.downloadDateEnd,
+  });
   const summaryText =
     summary.completed + summary.failed + summary.deleted === 0
-      ? '当前没有待导出的文章，已跳过本轮定时导出'
-      : buildScheduledExportSummary(summary);
+      ? '当前没有待抓取的文章，已跳过本轮定时抓取'
+      : buildScheduledContentFetchSummary(summary);
   await updateSchedulerState(
     {
       lastDownloadFinishedAt: Date.now(),
@@ -345,7 +342,7 @@ async function runTask(scopeId: string, task: 'sync' | 'download') {
     const summary = await runDownloadTaskInternal(scopeId);
     await notifyWorkerStatus({
       title: '后台任务通知',
-      lines: [`任务: 定时导出`, `结果: ${summary}`],
+      lines: [`任务: 定时抓取文章内容`, `结果: ${summary}`],
       scopeId,
     });
   } catch (error) {
@@ -360,8 +357,8 @@ async function runTask(scopeId: string, task: 'sync' | 'download') {
     );
     await notifyWorkerStatus({
       title: '后台任务告警',
-      lines: [`任务: 定时导出`, `结果: 失败`, `详情: ${message}`],
-      dedupeKey: `worker-download-error:${message}`,
+      lines: [`任务: 定时抓取文章内容`, `结果: 失败`, `详情: ${message}`],
+      dedupeKey: `worker-content-fetch-error:${message}`,
       cooldownMs: WORKER_STATUS_ALERT_COOLDOWN_MS,
       scopeId,
     });

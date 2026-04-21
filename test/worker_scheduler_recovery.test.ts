@@ -57,6 +57,6 @@ test('getInterruptedTaskRecoveryPatch clears stale download state after restart'
     downloadRunning: false,
     lastDownloadFinishedAt: now,
     lastDownloadSummary: '',
-    lastDownloadError: '后台任务在服务重启后被中断，请重新执行导出任务',
+    lastDownloadError: '后台任务在服务重启后被中断，请重新执行文章抓取任务',
   });
 });

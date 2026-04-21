@@ -1,14 +1,11 @@
-import dayjs from 'dayjs';
 import { validateHTMLContent } from '#shared/utils/html';
 import { PUBLIC_PROXY_LIST } from '~/config/public-proxy';
-import { exportArticleFormats } from '~/server/services/worker/article-exporter';
 import { resolveScheduledExportDateRange } from '~/server/services/worker/config-helpers';
 import {
   listPendingHtmlArticles,
   markArticleDeleted,
   markArticleHtmlDownloaded,
 } from '~/server/services/worker/repository';
-import type { ScheduledExportFormat } from '~/types/worker-scheduler';
 import { DEFAULT_OPTIONS } from '~/utils/download/constants';
 import { ProxyManager } from '~/utils/download/ProxyManager';
 
@@ -16,7 +13,6 @@ interface HtmlDownloadSummary {
   completed: number;
   failed: number;
   deleted: number;
-  exportedFormats: ScheduledExportFormat[];
 }
 
 function getWorkerProxyList() {
@@ -38,10 +34,6 @@ async function writeHtmlFile(scopeId: string, fakeid: string, aid: string, html:
   const filePath = path.join(accountDir, `${aid.replace(/[^a-zA-Z0-9_-]/g, '_')}.html`);
   await fs.writeFile(filePath, html, 'utf8');
   return path.relative(process.cwd(), filePath);
-}
-
-function getExportBatchRoot() {
-  return `./${['.data', 'worker-exports', dayjs().format('YYYYMMDD-HHmmss')].join('/')}`;
 }
 
 async function fetchHtmlThroughProxy(url: string, proxyManager: ProxyManager) {
@@ -74,7 +66,6 @@ async function fetchHtmlThroughProxy(url: string, proxyManager: ProxyManager) {
 export async function downloadPendingHtmlBatch(
   limit: number,
   fakeids: string[] = [],
-  formats: ScheduledExportFormat[] = [],
   scopeId: string,
   dateFilter?: {
     downloadDateRangeType: 'all' | 'recentDays' | 'customRange';
@@ -105,7 +96,6 @@ export async function downloadPendingHtmlBatch(
       completed: 0,
       failed: 0,
       deleted: 0,
-      exportedFormats: [...formats],
     };
   }
 
@@ -118,9 +108,7 @@ export async function downloadPendingHtmlBatch(
     completed: 0,
     failed: 0,
     deleted: 0,
-    exportedFormats: [...formats],
   };
-  const outputRoot = getExportBatchRoot();
 
   for (const article of articles) {
     try {
@@ -128,15 +116,6 @@ export async function downloadPendingHtmlBatch(
       const [status] = validateHTMLContent(html);
       if (status === 'Success') {
         const filePath = await writeHtmlFile(scopeId, article.fakeid, article.aid, html);
-        await exportArticleFormats({
-          scopeId,
-          fakeid: article.fakeid,
-          aid: article.aid,
-          title: article.title,
-          html,
-          formats,
-          outputRoot,
-        });
         await markArticleHtmlDownloaded(article.id, filePath, scopeId);
         summary.completed++;
       } else if (status === 'Deleted') {
@@ -146,7 +125,7 @@ export async function downloadPendingHtmlBatch(
         summary.failed++;
       }
     } catch (error) {
-      console.error(`后台下载 HTML 失败: ${article.link}`, error);
+      console.error(`后台抓取文章内容失败: ${article.link}`, error);
       summary.failed++;
     }
   }
