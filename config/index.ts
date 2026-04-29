@@ -29,11 +29,6 @@ export const ACCOUNT_TYPE: Record<number, string> = {
   2: '服务号',
 };
 
-/**
- * 文档站点地址
- */
-export const docsWebSite = 'https://docs.mptext.top';
-
 // 图片代理服务 todo: 这个可以在设置里增加一个配置项，网站是否启用图片代理，否的话置空即可。相应的，可以与 no-referer 配置互斥。
 // export const IMAGE_PROXY = 'https://image.baidu.com/search/down?thumburl=';
 export const IMAGE_PROXY = '';

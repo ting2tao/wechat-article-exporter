@@ -131,7 +131,7 @@
 
 ```bash
 docker run -d \
-  --name wechat-exporter \
+  --name wx-articles-manage \
   -p 3000:3000 \
   -e NITRO_KV_DRIVER=fs \
   -e NITRO_KV_BASE=.data/kv \
@@ -139,7 +139,7 @@ docker run -d \
   -e WORKER_HTML_DIR=.data/worker-html \
   -v /root/wechat-data:/app/.data \
   --restart=always \
-  ghcr.io/ting2tao/wechat-article-exporter:latest
+  ghcr.io/ting2tao/wx-articles-manage:latest
 ```
 
 ## 7. 排障建议

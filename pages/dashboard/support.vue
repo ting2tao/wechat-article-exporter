@@ -26,18 +26,14 @@
           >，无论是使用中遇到的问题，还是需要理解工具原理方便二次开发，都将为您提供一对一技术指导。
         </li>
         <li>
-          4) <span class="text-rose-400">享受后续付费服务的优惠政策</span>，后续将陆续开发一些
-          <ExternalLink
-            href="https://github.com/wechat-article/wechat-article-exporter/issues?q=is%3Aissue%20state%3Aopen%20label%3Apro%E8%AE%A1%E5%88%92"
-            text="付费服务"
-          />，您可享受原价50%的一次性优惠。
+          4) <span class="text-rose-400">享受后续付费服务的优惠政策</span>，后续将陆续开发一些付费服务，您可享受原价50%的一次性优惠。
         </li>
       </ul>
 
       <div class="mt-5 pl-3 border-l-4 border-emerald-500">
         <h3 class="">温馨提示</h3>
         <p class="">1. 若您在该项目早期曾打赏过该项目，可联系以下微信，提供您打赏时的转账单号，同样可享受以上服务。</p>
-        <p class="">2. 赞助后可添加私人微信(<code>champkeh</code>，备注: 公众号文章下载)。</p>
+        <p class="">2. 赞助后可添加私人微信(备注: 公众号文章下载)。</p>
       </div>
 
       <img class="w-96" src="~/assets/wechat-support.png" alt="" />

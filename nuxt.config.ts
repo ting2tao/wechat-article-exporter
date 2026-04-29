@@ -83,7 +83,7 @@ export default defineNuxtConfig({
     enabled: true,
     id: process.env.NUXT_UMAMI_ID,
     host: process.env.NUXT_UMAMI_HOST,
-    domains: ['down.mptext.top'],
+    domains: [],
     ignoreLocalhost: true,
     autoTrack: true,
     logErrors: true,

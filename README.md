@@ -1,19 +1,10 @@
 <p align="center">
-  <img src="./assets/logo.svg" alt="wechat-article-exporter logo" width="120">
+  <img src="./assets/logo.svg" alt="wx-articles-manage logo" width="120">
 </p>
 
-# wechat-article-exporter
-
-[![GitHub stars](https://img.shields.io/github/stars/wechat-article/wechat-article-exporter?style=social)](https://github.com/wechat-article/wechat-article-exporter/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/wechat-article/wechat-article-exporter?style=social)](https://github.com/wechat-article/wechat-article-exporter/network/members)
-[![License](https://img.shields.io/github/license/wechat-article/wechat-article-exporter)](./LICENSE)
-[![Package Version](https://img.shields.io/github/package-json/v/wechat-article/wechat-article-exporter)](./package.json)
+# wx-articles-manage
 
 一款面向微信公众号后台场景的文章批量下载与导出工具。
-
-- 在线使用：[down.mptext.top](https://down.mptext.top)
-- 使用文档：[docs.mptext.top](https://docs.mptext.top)
-- 交流群（QQ）：`991482155`
 
 项目基于 Nuxt 3 SPA + Vue 3 + Nitro，支持扫码登录公众号后台后搜索账号、同步文章、下载 HTML，并导出为 HTML、JSON、Excel、TXT、Markdown、DOCX 等格式。其中 HTML 导出会尽量还原公众号原始样式、图片和排版。
 
@@ -171,21 +162,6 @@ yarn docker:build
 - 按文章链接下载
 - 查询公众号信息
 - 获取公开接口返回数据
-
-更详细的使用方式请查看文档站。
-
-## 相关链接
-
-- 在线站点：[https://down.mptext.top](https://down.mptext.top)
-- 文档站点：[https://docs.mptext.top](https://docs.mptext.top)
-- 域名调整说明：[https://docs.mptext.top/misc/domain.html](https://docs.mptext.top/misc/domain.html)
-- 原理参考：[WeChat_Article](https://github.com/1061700625/WeChat_Article)
-
-## 支持项目
-
-如果这个项目帮到了你，欢迎点一个 Star。
-
-[![Star History Chart](https://api.star-history.com/svg?repos=wechat-article/wechat-article-exporter&type=Timeline)](https://star-history.com/#wechat-article/wechat-article-exporter&Timeline)
 
 ## 许可
 

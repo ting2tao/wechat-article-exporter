@@ -11,7 +11,7 @@
 ### 克隆仓库
 
 ```shell
-git clone git@github.com:wechat-article/wechat-article-exporter.git
+git clone git@github.com:ting2tao/wx-articles-manage.git
 ```
 
 ### 安装 NodeJS
@@ -40,7 +40,7 @@ yarn dev
 ## 如何贡献
 
 ### 1. 报告 Bug 或建议功能
-- 先搜索现有 [Issues](https://github.com/wechat-article/wechat-article-exporter/issues)，避免重复。
+- 先搜索现有 [Issues](https://github.com/ting2tao/wx-articles-manage/issues)，避免重复。
 - 如果没有找到，创建一个新 Issue。
     - Bug 报告请包含：复现步骤、预期行为、实际行为、环境信息（操作系统、浏览器、版本等）。
     - 功能建议请详细描述需求和使用场景。
@@ -62,7 +62,7 @@ yarn dev
     - **如果是重大更改，请先开 Issue 讨论**。
 
 ### 3. 文档或翻译贡献
-- 文档请修改 [docs](https://github.com/wechat-article/docs) 项目
+- 文档请修改 docs 项目
 - 同样通过 Pull Request 提交
 
 ### 4. 代码风格指南

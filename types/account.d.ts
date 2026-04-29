@@ -2,6 +2,6 @@ import type { MpAccount } from '~/store/v2/info';
 
 export interface AccountManifest {
   version: string;
-  usefor: 'wechat-article-exporter';
+  usefor: 'wx-articles-manage';
   accounts: MpAccount[];
 }

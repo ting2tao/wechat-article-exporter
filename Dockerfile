@@ -31,10 +31,10 @@ FROM node:22-bookworm-slim
 ARG VERSION=unknown
 
 # 添加 LABEL 元数据
-LABEL maintainer="findsource@proton.me" \
+LABEL maintainer="ting2tao" \
       version="${VERSION}" \
-      description="wechat-article-exporter Docker Image" \
-      org.opencontainers.image.source="https://github.com/wechat-article/wechat-article-exporter" \
+      description="wx-articles-manage Docker Image" \
+      org.opencontainers.image.source="https://github.com/ting2tao/wx-articles-manage" \
       org.opencontainers.image.description="一个在线的微信公众号文章批量下载工具，支持下载阅读量与评论数据，支持私有化部署，通过浏览器进行使用，无需进行安装" \
       org.opencontainers.image.licenses="MIT"
 

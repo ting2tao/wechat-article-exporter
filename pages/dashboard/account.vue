@@ -450,7 +450,7 @@ async function handleFileChange(evt: Event) {
 
       // 解析 JSON
       const jsonData = JSON.parse(await file.text());
-      if (jsonData.usefor !== 'wechat-article-exporter') {
+      if (jsonData.usefor !== 'wx-articles-manage') {
         // 文件格式不正确
         toast.error('导入公众号失败', '导入文件格式不正确，请选择该网站导出的文件进行导入。');
         return;
@@ -482,7 +482,7 @@ function exportAccount() {
     const rows = getSelectedRows();
     const data: AccountManifest = {
       version: '1.0',
-      usefor: 'wechat-article-exporter',
+      usefor: 'wx-articles-manage',
       accounts: rows,
     };
     exportAccountJsonFile(data, '公众号');
