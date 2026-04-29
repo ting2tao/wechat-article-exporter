@@ -39,8 +39,16 @@ export default defineEventHandler(async event => {
     head_img = headImgMatchResult.groups.head_img;
   }
 
+  // 提取 fakeid（公众号唯一标识，优先使用）
+  let fakeid = '';
+  const fakeidMatchResult = html.match(/wx\.cgiData\.user_name\s*?=\s*?"(?<user_name>[^"]+)"/);
+  if (fakeidMatchResult?.groups?.user_name) {
+    fakeid = fakeidMatchResult.groups.user_name;
+  }
+
   return {
     nick_name: nick_name,
     head_img: head_img,
+    fakeid: fakeid,
   };
 });

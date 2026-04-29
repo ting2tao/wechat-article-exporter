@@ -66,9 +66,10 @@ export default defineEventHandler(async event => {
   }
 
   try {
-    const { nick_name, head_img, error } = await request<{
+    const { nick_name, head_img, fakeid, error } = await request<{
       nick_name: string;
       head_img: string;
+      fakeid: string;
       error?: string;
     }>(`/api/web/mp/info`, {
       headers: {
@@ -84,11 +85,15 @@ export default defineEventHandler(async event => {
       };
     }
 
+    // 优先使用 fakeid 作为 scopeId（公众号唯一标识，不可变），
+    // 降级使用 nick_name（可修改，但同一公众号短期内通常不变）
+    const scopeId = fakeid || nick_name;
+
     const body = JSON.stringify({
       nickname: nick_name,
       avatar: head_img,
       expires: dayjs().add(4, 'days').toString(),
-      scopeId: nick_name,
+      scopeId,
     });
     const headers = new Headers(response.headers);
     headers.set('Content-Length', new TextEncoder().encode(body).length.toString());
