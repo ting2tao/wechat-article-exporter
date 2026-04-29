@@ -1,7 +1,7 @@
 services:
   app:
-    image: ghcr.io/ting2tao/wechat-article-exporter:${IMAGE_TAG:-latest}
-    container_name: wechat-exporter
+    image: ghcr.io/ting2tao/wx-articles-manage:${IMAGE_TAG:-latest}
+    container_name: wx-articles-manage
     restart: always
     env_file:
       - .env

@@ -21,7 +21,7 @@ function onClose() {
       <!-- 二维码图片展示区 -->
       <div class="flex flex-col justify-center items-center mx-auto">
         <img :src="qqGroupImg" alt="" class="size-72" />
-        <p class="text-2xl">群号: <span class="font-mono">991482155</span></p>
+        <p class="text-2xl">群号: <span class="font-mono">-</span></p>
       </div>
     </UCard>
   </UModal>

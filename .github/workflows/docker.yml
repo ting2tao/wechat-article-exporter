@@ -47,22 +47,22 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME}"
             TAGS=$(cat <<EOF
-          ghcr.io/ting2tao/wechat-article-exporter:${VERSION}-amd64
-          ghcr.io/ting2tao/wechat-article-exporter:${VERSION}-arm64
-          ghcr.io/ting2tao/wechat-article-exporter:${VERSION}
-          ghcr.io/ting2tao/wechat-article-exporter:${SHA_VERSION}-amd64
-          ghcr.io/ting2tao/wechat-article-exporter:${SHA_VERSION}-arm64
-          ghcr.io/ting2tao/wechat-article-exporter:${SHA_VERSION}
-          ghcr.io/ting2tao/wechat-article-exporter:latest
+          ghcr.io/ting2tao/wx-articles-manage:${VERSION}-amd64
+          ghcr.io/ting2tao/wx-articles-manage:${VERSION}-arm64
+          ghcr.io/ting2tao/wx-articles-manage:${VERSION}
+          ghcr.io/ting2tao/wx-articles-manage:${SHA_VERSION}-amd64
+          ghcr.io/ting2tao/wx-articles-manage:${SHA_VERSION}-arm64
+          ghcr.io/ting2tao/wx-articles-manage:${SHA_VERSION}
+          ghcr.io/ting2tao/wx-articles-manage:latest
           EOF
           )
           else
             VERSION="${SHA_VERSION}"
             TAGS=$(cat <<EOF
-          ghcr.io/ting2tao/wechat-article-exporter:${VERSION}-amd64
-          ghcr.io/ting2tao/wechat-article-exporter:${VERSION}-arm64
-          ghcr.io/ting2tao/wechat-article-exporter:${VERSION}
-          ghcr.io/ting2tao/wechat-article-exporter:latest
+          ghcr.io/ting2tao/wx-articles-manage:${VERSION}-amd64
+          ghcr.io/ting2tao/wx-articles-manage:${VERSION}-arm64
+          ghcr.io/ting2tao/wx-articles-manage:${VERSION}
+          ghcr.io/ting2tao/wx-articles-manage:latest
           EOF
           )
           fi

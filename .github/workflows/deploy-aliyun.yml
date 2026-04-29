@@ -20,7 +20,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      DEPLOY_PATH: ${{ secrets.ALIYUN_DEPLOY_PATH || '/opt/wechat-article-exporter' }}
+      DEPLOY_PATH: ${{ secrets.ALIYUN_DEPLOY_PATH || '/opt/wx-articles-manage' }}
       DATA_DIR: ${{ secrets.ALIYUN_DATA_DIR || '/root/wechat-data' }}
 
     steps:
@@ -128,14 +128,14 @@ jobs:
             groups || true
             ls -l /var/run/docker.sock || true
 
-            if docker info >/tmp/wechat-article-exporter-docker-info.log 2>&1; then
+            if docker info >/tmp/wx-articles-manage-docker-info.log 2>&1; then
               log "docker daemon is reachable with current SSH user"
-            elif command -v sudo >/dev/null 2>&1 && sudo -n docker info >/tmp/wechat-article-exporter-docker-info.log 2>&1; then
+            elif command -v sudo >/dev/null 2>&1 && sudo -n docker info >/tmp/wx-articles-manage-docker-info.log 2>&1; then
               DOCKER_BIN='sudo docker'
               log "docker daemon is reachable via sudo"
             else
               log "docker info output:"
-              cat /tmp/wechat-article-exporter-docker-info.log || true
+              cat /tmp/wx-articles-manage-docker-info.log || true
               fail "docker daemon is unreachable, or the SSH user lacks permission to access Docker"
             fi
 
@@ -150,7 +150,7 @@ jobs:
             COMPOSE_READY=''
 
             set +e
-            docker_run compose version >/tmp/wechat-article-exporter-compose-version.log 2>&1
+            docker_run compose version >/tmp/wx-articles-manage-compose-version.log 2>&1
             compose_plugin_status=$?
             set -e
 
@@ -162,7 +162,7 @@ jobs:
 
             if [ -z "$COMPOSE_READY" ] && command -v docker-compose >/dev/null 2>&1; then
               set +e
-              docker-compose version >/tmp/wechat-article-exporter-docker-compose-version.log 2>&1
+              docker-compose version >/tmp/wx-articles-manage-docker-compose-version.log 2>&1
               docker_compose_status=$?
               set -e
 
@@ -175,9 +175,9 @@ jobs:
 
             if [ -z "$COMPOSE_READY" ]; then
               log "docker compose version output:"
-              cat /tmp/wechat-article-exporter-compose-version.log || true
+              cat /tmp/wx-articles-manage-compose-version.log || true
               log "docker-compose version output:"
-              cat /tmp/wechat-article-exporter-docker-compose-version.log || true
+              cat /tmp/wx-articles-manage-docker-compose-version.log || true
               log "compose is unavailable, fallback to docker run deployment"
             fi
 
@@ -206,7 +206,7 @@ jobs:
               log "GHCR credentials are empty. Skip docker login (works only for public images)."
             fi
 
-            IMAGE_REF="ghcr.io/ting2tao/wechat-article-exporter:${IMAGE_TAG:-latest}"
+            IMAGE_REF="ghcr.io/ting2tao/wx-articles-manage:${IMAGE_TAG:-latest}"
 
             if [ -n "$COMPOSE_READY" ]; then
               log "validate compose file"
@@ -235,12 +235,12 @@ jobs:
               fi
 
               log "remove existing containers"
-              docker_run rm -f wechat-exporter || true
-              docker_run rm -f wechat-article-exporter || true
+              docker_run rm -f wx-articles-manage || true
+              docker_run rm -f wx-articles-manage || true
 
               log "start container via docker run"
               if ! docker_run run -d \
-                --name wechat-exporter \
+                --name wx-articles-manage \
                 --env-file "$DEPLOY_PATH/.env" \
                 -p 3000:3000 \
                 -e NITRO_KV_DRIVER=fs \
@@ -253,7 +253,7 @@ jobs:
                 fail "docker run failed"
               fi
 
-              docker_run ps --filter name=wechat-exporter || true
+              docker_run ps --filter name=wx-articles-manage || true
             fi
 
             docker_run image prune -f || true
