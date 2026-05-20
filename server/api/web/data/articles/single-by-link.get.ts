@@ -11,7 +11,7 @@ export default defineEventHandler(async event => {
   }
 
   try {
-    return getSingleArticleByLink(url, authKey);
+    return await getSingleArticleByLink(url, authKey);
   } catch {
     throw createError({ statusCode: 404, statusMessage: 'Article not found' });
   }

@@ -1,5 +1,5 @@
-import * as cheerio from 'cheerio';
 import { USER_AGENT } from '~/config';
+import { extractAccountNameFromHtml } from '~/server/utils/wechat-account-page';
 
 interface AccountNameQuery {
   url: string;
@@ -44,9 +44,8 @@ export default defineEventHandler(async event => {
       Origin: 'https://mp.weixin.qq.com',
       'User-Agent': USER_AGENT,
     },
-    redirect: 'error', // 禁止跟随重定向，防止 SSRF 绕过
+    redirect: 'manual', // 禁止跟随重定向，防止 SSRF 绕过
   }).then(res => res.text());
 
-  const $ = cheerio.load(rawHtml);
-  return $('.wx_follow_nickname:first').text().trim();
+  return extractAccountNameFromHtml(rawHtml);
 });

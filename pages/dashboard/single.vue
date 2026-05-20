@@ -23,8 +23,12 @@ import PreviewArticle from '~/components/preview/Article.vue';
 import toastFactory from '~/composables/toast';
 import { websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
-import { articleDeleted, updateArticleFakeid, updateArticleStatus } from '~/store/v2/article';
-import { upsertArticleCacheRecords } from '~/store/v2/article';
+import {
+  articleDeleted,
+  updateArticleFakeid,
+  updateArticleStatus,
+  upsertArticleCacheRecords,
+} from '~/store/v2/article';
 import { getHtmlCache } from '~/store/v2/html';
 import type { AppMsgExWithFakeID } from '~/types/types';
 import { getStoredScopeId } from '~/utils/auth-scope';
@@ -453,10 +457,6 @@ async function updateRowFromHtml(row: SingleArticleRow) {
 }
 
 function previewRow(row: SingleArticleRow) {
-  if (!row.contentDownload) {
-    toast.warning('提示', '请先抓取该文章内容');
-    return;
-  }
   const article = buildVirtualArticle(row) as AppMsgExWithFakeID;
   previewArticleRef.value?.open(article);
 }

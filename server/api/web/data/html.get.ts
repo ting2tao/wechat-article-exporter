@@ -1,8 +1,8 @@
-import { readHtmlFile } from '~/server/services/worker/repository';
+import { readHtmlFile, readTrackedArticleHtmlByUrl } from '~/server/services/worker/repository';
 import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 
 export default defineEventHandler(async event => {
-  const authKey = await resolveScopeIdFromRequest(event);
+  const scopeId = await resolveScopeIdFromRequest(event);
 
   const query = getQuery(event);
   const url = query.url as string;
@@ -10,7 +10,7 @@ export default defineEventHandler(async event => {
     throw createError({ statusCode: 400, statusMessage: 'Missing url' });
   }
 
-  const result = await readHtmlFile(url, authKey);
+  const result = (await readHtmlFile(url, scopeId)) || (await readTrackedArticleHtmlByUrl(url, scopeId));
   if (!result) {
     throw createError({ statusCode: 404, statusMessage: 'HTML not found' });
   }

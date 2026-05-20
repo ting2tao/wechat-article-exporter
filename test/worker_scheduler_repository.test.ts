@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import Database from 'better-sqlite3';
 
 const dbPath = path.join(os.tmpdir(), `worker-scheduler-repository-${process.pid}-${Date.now()}.db`);
 const htmlDir = path.join(os.tmpdir(), `worker-scheduler-html-${process.pid}-${Date.now()}`);
@@ -279,6 +279,76 @@ test('readTrackedArticleHtmlBatch returns stored html content for downloaded wor
   assert.equal(htmlList.length, 1);
   assert.equal(htmlList[0].aid, 'c1');
   assert.equal(htmlList[0].html, '<html>worker html</html>');
+});
+
+test('readTrackedArticleHtmlByUrl returns stored worker html by article link within a scope', async () => {
+  await repository.upsertTrackedAccounts([{ fakeid: 'f4', nickname: 'D', round_head_img: '' }] as any, 'scope-preview');
+  await repository.upsertAccountArticles(
+    { fakeid: 'f4', nickname: 'D', round_head_img: '' } as any,
+    1,
+    [
+      {
+        aid: 'd1',
+        title: 'Article D',
+        link: 'https://example.com/d1',
+        cover: '',
+        digest: '',
+        create_time: 1712966400,
+        update_time: 4000,
+        itemidx: 1,
+        is_deleted: 0,
+      },
+    ] as any,
+    'scope-preview'
+  );
+
+  const relativePath = path.join(path.relative(process.cwd(), htmlDir), 'scope-preview', 'f4', 'd1.html');
+  fs.mkdirSync(path.dirname(path.resolve(process.cwd(), relativePath)), { recursive: true });
+  fs.writeFileSync(path.resolve(process.cwd(), relativePath), '<html>preview html</html>', 'utf8');
+  await repository.markArticleHtmlDownloaded('f4:d1', relativePath, 'scope-preview');
+
+  const result = await repository.readTrackedArticleHtmlByUrl('https://example.com/d1', 'scope-preview');
+  assert.equal(result?.meta.fakeid, 'f4');
+  assert.equal(result?.meta.url, 'https://example.com/d1');
+  assert.equal(result?.meta.title, 'Article D');
+  assert.equal(result?.content.toString('utf8'), '<html>preview html</html>');
+});
+
+test('saveHtmlFile marks matching article content as downloaded for the next page load', async () => {
+  await repository.upsertArticleCacheRecords(
+    [
+      {
+        fakeid: 'f5',
+        aid: 'e1',
+        title: 'Article E',
+        link: 'https://example.com/e1',
+        cover: '',
+        digest: '',
+        create_time: 1712966400,
+        update_time: 4000,
+        itemidx: 1,
+        is_deleted: false,
+      },
+    ],
+    'scope-save-html'
+  );
+
+  await repository.saveHtmlFile(
+    {
+      fakeid: 'f5',
+      url: 'https://example.com/e1',
+      title: 'Article E',
+      commentID: 'comment-e1',
+    },
+    Buffer.from('<html>saved html</html>'),
+    'scope-save-html'
+  );
+
+  const article = await repository.getArticleByLink('https://example.com/e1', 'scope-save-html');
+  assert.equal(article.html_downloaded, true);
+
+  const result = await repository.readTrackedArticleHtmlByUrl('https://example.com/e1', 'scope-save-html');
+  assert.equal(result?.content.toString('utf8'), '<html>saved html</html>');
 });
 
 test('scheduler config persists selected accounts and formats', async () => {

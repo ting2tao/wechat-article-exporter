@@ -6,6 +6,7 @@ import { getAssetCache, updateAssetCache } from '~/store/v2/assets';
 import type { DownloadableArticle } from '~/types/types';
 import type { AudioResource, VideoPageInfo } from '~/types/video';
 import * as pool from '~/utils/pool';
+import { buildProxiedResourceUrl } from '~/utils/proxy-preferences';
 
 /**
  * 使用代理下载资源
@@ -13,10 +14,14 @@ import * as pool from '~/utils/pool';
  * @param proxy 代理地址
  * @param timeout 超时时间(单位: 秒)，默认 30
  */
-async function downloadAssetWithProxy<T extends Blob | string>(url: string, proxy: string | undefined, timeout = 30) {
-  let targetURL = proxy
-    ? `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify({}))}`
-    : url;
+async function downloadAssetWithProxy<T extends Blob | string>(
+  url: string,
+  proxy: string | undefined,
+  timeoutOrLegacyUseProxy: number | boolean = 30,
+  legacyTimeout = 30
+) {
+  const timeout = typeof timeoutOrLegacyUseProxy === 'number' ? timeoutOrLegacyUseProxy : legacyTimeout;
+  let targetURL = proxy ? buildProxiedResourceUrl(proxy, url, pool.proxyAuthorization) : url;
   targetURL = targetURL.replace(/^http:\/\//, 'https://');
 
   return await request<T>(targetURL, {

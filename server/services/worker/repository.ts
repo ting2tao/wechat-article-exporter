@@ -95,6 +95,7 @@ interface WorkerArticleHtmlRow {
   fakeid: string;
   link: string;
   title: string;
+  comment_id?: string | null;
   html_path: string | null;
   html_updated_at: number | null;
 }
@@ -850,7 +851,9 @@ export async function listSchedulerScopeIds(): Promise<string[]> {
     LEGACY_GLOBAL_SCOPE_MIGRATION_KEY,
   ]);
   if (!migrationMarker?.value) {
-    const legacyConfig = sqlite.get<{ auth_key: string | null }>('SELECT auth_key FROM worker_scheduler_config WHERE id = 1');
+    const legacyConfig = sqlite.get<{ auth_key: string | null }>(
+      'SELECT auth_key FROM worker_scheduler_config WHERE id = 1'
+    );
     const legacyScopeId = legacyConfig?.auth_key?.trim();
     if (legacyScopeId) {
       scopeIds.add(legacyScopeId);
@@ -1128,7 +1131,9 @@ export async function listTrackedAccounts(scopeId?: string | null): Promise<MpAc
   return rows.map(mapWorkerAccountRow);
 }
 
-function mapWorkerAccountRow(row: WorkerAccountRow & { completed?: number; last_update_time?: number | null }): MpAccount {
+function mapWorkerAccountRow(
+  row: WorkerAccountRow & { completed?: number; last_update_time?: number | null }
+): MpAccount {
   return {
     fakeid: row.fakeid,
     nickname: row.nickname || undefined,
@@ -1267,6 +1272,51 @@ export async function readTrackedArticleHtmlBatch(fakeid: string, aids: string[]
   );
 
   return htmlList.filter(Boolean);
+}
+
+export async function readTrackedArticleHtmlByUrl(
+  url: string,
+  scopeId?: string | null
+): Promise<{ meta: ScopeHtmlRow; content: Buffer } | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const row = sqlite.get<WorkerArticleHtmlRow>(
+    `
+      SELECT aid, fakeid, link, title, comment_id, html_path, html_updated_at
+      FROM worker_scope_articles
+      WHERE scope_id = ?
+        AND link = ?
+        AND html_downloaded = 1
+        AND html_path IS NOT NULL
+    `,
+    [resolvedScopeId, url]
+  );
+  if (!row?.html_path) {
+    return undefined;
+  }
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+  try {
+    const filePath = path.resolve(process.cwd(), row.html_path);
+    const content = await fs.readFile(filePath);
+    return {
+      meta: {
+        scope_id: resolvedScopeId,
+        fakeid: row.fakeid,
+        url: row.link,
+        title: row.title,
+        comment_id: row.comment_id || null,
+        html_path: row.html_path,
+        file_size: content.length,
+        created_at: row.html_updated_at || 0,
+        updated_at: row.html_updated_at || 0,
+      },
+      content,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export async function removeTrackedAccounts(fakeids: string[], scopeId?: string | null) {
@@ -1741,10 +1791,10 @@ export async function getArticleByLink(url: string, scopeId?: string | null) {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  const row = sqlite.get<WorkerArticleRow>(
-    'SELECT * FROM worker_scope_articles WHERE scope_id = ? AND link = ?',
-    [resolvedScopeId, url]
-  );
+  const row = sqlite.get<WorkerArticleRow>('SELECT * FROM worker_scope_articles WHERE scope_id = ? AND link = ?', [
+    resolvedScopeId,
+    url,
+  ]);
   if (!row) throw new Error(`Article(${url}) does not exist`);
   return mapWorkerArticleRow(row);
 }
@@ -1924,23 +1974,35 @@ export async function updateArticleStatusByLink(url: string, status: string, sco
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  sqlite.run(
-    'UPDATE worker_scope_articles SET status = ?, updated_at = ? WHERE scope_id = ? AND link = ?',
-    [status, Date.now(), resolvedScopeId, url]
-  );
+  sqlite.run('UPDATE worker_scope_articles SET status = ?, updated_at = ? WHERE scope_id = ? AND link = ?', [
+    status,
+    Date.now(),
+    resolvedScopeId,
+    url,
+  ]);
 }
 
-export async function markArticleDeletedByLink(url: string, isDeleted: boolean, scopeId?: string | null): Promise<void> {
+export async function markArticleDeletedByLink(
+  url: string,
+  isDeleted: boolean,
+  scopeId?: string | null
+): Promise<void> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  sqlite.run(
-    'UPDATE worker_scope_articles SET is_deleted = ?, updated_at = ? WHERE scope_id = ? AND link = ?',
-    [isDeleted ? 1 : 0, Date.now(), resolvedScopeId, url]
-  );
+  sqlite.run('UPDATE worker_scope_articles SET is_deleted = ?, updated_at = ? WHERE scope_id = ? AND link = ?', [
+    isDeleted ? 1 : 0,
+    Date.now(),
+    resolvedScopeId,
+    url,
+  ]);
 }
 
-export async function updateArticleFakeidByLink(url: string, newFakeid: string, scopeId?: string | null): Promise<void> {
+export async function updateArticleFakeidByLink(
+  url: string,
+  newFakeid: string,
+  scopeId?: string | null
+): Promise<void> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
@@ -1969,20 +2031,20 @@ export async function getHtmlMeta(url: string, scopeId?: string | null): Promise
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  return sqlite.get<ScopeHtmlRow>(
-    'SELECT * FROM worker_scope_html WHERE scope_id = ? AND url = ?',
-    [resolvedScopeId, url]
-  );
+  return sqlite.get<ScopeHtmlRow>('SELECT * FROM worker_scope_html WHERE scope_id = ? AND url = ?', [
+    resolvedScopeId,
+    url,
+  ]);
 }
 
 export async function getHtmlCacheUrlsByFakeid(fakeid: string, scopeId?: string | null): Promise<string[]> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  const rows = sqlite.all<{ url: string }>(
-    'SELECT url FROM worker_scope_html WHERE scope_id = ? AND fakeid = ?',
-    [resolvedScopeId, fakeid]
-  );
+  const rows = sqlite.all<{ url: string }>('SELECT url FROM worker_scope_html WHERE scope_id = ? AND fakeid = ?', [
+    resolvedScopeId,
+    fakeid,
+  ]);
   return rows.map(r => r.url);
 }
 
@@ -1995,7 +2057,11 @@ export async function saveHtmlFile(
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
 
-  const [fs, path, crypto] = await Promise.all([import('node:fs/promises'), import('node:path'), import('node:crypto')]);
+  const [fs, path, crypto] = await Promise.all([
+    import('node:fs/promises'),
+    import('node:path'),
+    import('node:crypto'),
+  ]);
   const hash = crypto.createHash('sha256').update(data.url).digest('hex').slice(0, 16);
   const dirPath = path.resolve(process.cwd(), `.data/scope-html/${resolvedScopeId}/${data.fakeid}`);
   const filePath = path.join(dirPath, `${hash}.html`);
@@ -2016,16 +2082,32 @@ export async function saveHtmlFile(
     `,
     [resolvedScopeId, data.fakeid, data.url, data.title, data.commentID || null, filePath, fileBuffer.length, now, now]
   );
+
+  sqlite.run(
+    `
+      UPDATE worker_scope_articles
+      SET html_downloaded = 1,
+          html_path = ?,
+          html_updated_at = ?,
+          updated_at = ?
+      WHERE scope_id = ?
+        AND link = ?
+    `,
+    [filePath, now, now, resolvedScopeId, data.url]
+  );
 }
 
-export async function readHtmlFile(url: string, scopeId?: string | null): Promise<{ meta: ScopeHtmlRow; content: Buffer } | undefined> {
+export async function readHtmlFile(
+  url: string,
+  scopeId?: string | null
+): Promise<{ meta: ScopeHtmlRow; content: Buffer } | undefined> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  const meta = sqlite.get<ScopeHtmlRow>(
-    'SELECT * FROM worker_scope_html WHERE scope_id = ? AND url = ?',
-    [resolvedScopeId, url]
-  );
+  const meta = sqlite.get<ScopeHtmlRow>('SELECT * FROM worker_scope_html WHERE scope_id = ? AND url = ?', [
+    resolvedScopeId,
+    url,
+  ]);
   if (!meta?.html_path) return undefined;
 
   const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
@@ -2059,10 +2141,7 @@ export async function getResourceMeta(url: string, scopeId?: string | null) {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  return sqlite.get(
-    'SELECT * FROM worker_scope_resources WHERE scope_id = ? AND url = ?',
-    [resolvedScopeId, url]
-  );
+  return sqlite.get('SELECT * FROM worker_scope_resources WHERE scope_id = ? AND url = ?', [resolvedScopeId, url]);
 }
 
 export async function saveResourceFile(
@@ -2074,7 +2153,11 @@ export async function saveResourceFile(
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
 
-  const [fs, path, crypto] = await Promise.all([import('node:fs/promises'), import('node:path'), import('node:crypto')]);
+  const [fs, path, crypto] = await Promise.all([
+    import('node:fs/promises'),
+    import('node:path'),
+    import('node:crypto'),
+  ]);
   const hash = crypto.createHash('sha256').update(data.url).digest('hex').slice(0, 16);
   const ext = data.contentType.includes('css') ? '.css' : data.contentType.includes('javascript') ? '.js' : '.bin';
   const dirPath = path.resolve(process.cwd(), `.data/scope-resources/${resolvedScopeId}`);
@@ -2096,14 +2179,17 @@ export async function saveResourceFile(
   );
 }
 
-export async function readResourceFile(url: string, scopeId?: string | null): Promise<{ meta: any; content: Buffer } | undefined> {
+export async function readResourceFile(
+  url: string,
+  scopeId?: string | null
+): Promise<{ meta: any; content: Buffer } | undefined> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  const meta = sqlite.get<any>(
-    'SELECT * FROM worker_scope_resources WHERE scope_id = ? AND url = ?',
-    [resolvedScopeId, url]
-  );
+  const meta = sqlite.get<any>('SELECT * FROM worker_scope_resources WHERE scope_id = ? AND url = ?', [
+    resolvedScopeId,
+    url,
+  ]);
   if (!meta?.resource_path) return undefined;
 
   const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
@@ -2118,7 +2204,10 @@ export async function readResourceFile(url: string, scopeId?: string | null): Pr
 
 // ==================== Resource map operations ====================
 
-export async function getResourceMap(url: string, scopeId?: string | null): Promise<{ fakeid: string; url: string; resources: string[] } | undefined> {
+export async function getResourceMap(
+  url: string,
+  scopeId?: string | null
+): Promise<{ fakeid: string; url: string; resources: string[] } | undefined> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
@@ -2130,7 +2219,10 @@ export async function getResourceMap(url: string, scopeId?: string | null): Prom
   return { fakeid: row.fakeid, url: row.url, resources: JSON.parse(row.resources) };
 }
 
-export async function saveResourceMap(data: { fakeid: string; url: string; resources: string[] }, scopeId?: string | null): Promise<void> {
+export async function saveResourceMap(
+  data: { fakeid: string; url: string; resources: string[] },
+  scopeId?: string | null
+): Promise<void> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
@@ -2152,20 +2244,14 @@ export async function getDebugMeta(url: string, scopeId?: string | null) {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  return sqlite.get(
-    'SELECT * FROM worker_scope_debug WHERE scope_id = ? AND url = ?',
-    [resolvedScopeId, url]
-  );
+  return sqlite.get('SELECT * FROM worker_scope_debug WHERE scope_id = ? AND url = ?', [resolvedScopeId, url]);
 }
 
 export async function getAllDebugEntries(scopeId?: string | null) {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  return sqlite.all(
-    'SELECT * FROM worker_scope_debug WHERE scope_id = ? ORDER BY created_at DESC',
-    [resolvedScopeId]
-  );
+  return sqlite.all('SELECT * FROM worker_scope_debug WHERE scope_id = ? ORDER BY created_at DESC', [resolvedScopeId]);
 }
 
 export async function saveDebugFile(
@@ -2177,7 +2263,11 @@ export async function saveDebugFile(
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
 
-  const [fs, path, crypto] = await Promise.all([import('node:fs/promises'), import('node:path'), import('node:crypto')]);
+  const [fs, path, crypto] = await Promise.all([
+    import('node:fs/promises'),
+    import('node:path'),
+    import('node:crypto'),
+  ]);
   const hash = crypto.createHash('sha256').update(data.url).digest('hex').slice(0, 16);
   const dirPath = path.resolve(process.cwd(), `.data/scope-debug/${resolvedScopeId}`);
   const filePath = path.join(dirPath, `${hash}.html`);
@@ -2199,14 +2289,17 @@ export async function saveDebugFile(
   );
 }
 
-export async function readDebugFile(url: string, scopeId?: string | null): Promise<{ meta: any; content: Buffer } | undefined> {
+export async function readDebugFile(
+  url: string,
+  scopeId?: string | null
+): Promise<{ meta: any; content: Buffer } | undefined> {
   const resolvedScopeId = normalizeWorkerScopeId(scopeId);
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
-  const meta = sqlite.get<any>(
-    'SELECT * FROM worker_scope_debug WHERE scope_id = ? AND url = ?',
-    [resolvedScopeId, url]
-  );
+  const meta = sqlite.get<any>('SELECT * FROM worker_scope_debug WHERE scope_id = ? AND url = ?', [
+    resolvedScopeId,
+    url,
+  ]);
   if (!meta?.html_path) return undefined;
 
   const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
@@ -2275,7 +2368,10 @@ export async function deleteAllAccountData(fakeids: string[], scopeId?: string |
     'worker_scope_debug',
   ];
   for (const table of tables) {
-    sqlite.run(`DELETE FROM ${table} WHERE scope_id = ? AND fakeid IN (${placeholders})`, [resolvedScopeId, ...fakeids]);
+    sqlite.run(`DELETE FROM ${table} WHERE scope_id = ? AND fakeid IN (${placeholders})`, [
+      resolvedScopeId,
+      ...fakeids,
+    ]);
   }
 }
 

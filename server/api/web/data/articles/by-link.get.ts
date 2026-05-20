@@ -11,7 +11,7 @@ export default defineEventHandler(async event => {
   }
 
   try {
-    return getArticleByLink(url, authKey);
+    return await getArticleByLink(url, authKey);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('does not exist')) {

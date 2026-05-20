@@ -24,7 +24,7 @@ function preview() {
     </UTooltip>
     <UTooltip text="预览" :popper="{ placement: 'top' }">
       <UButton
-        :disabled="!params.data.contentDownload || params.data.downloading"
+        :disabled="params.data.downloading"
         icon="i-heroicons:fire-16-solid"
         :color="params.data.contentDownload ? 'blue' : 'gray'"
         size="xs"

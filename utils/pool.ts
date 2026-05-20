@@ -5,6 +5,7 @@ import { sleep } from '#shared/utils/helpers';
 import { PUBLIC_PROXY_LIST } from '~/config/public-proxy';
 import type { DownloadableArticle } from '~/types/types';
 import type { AudioResource, VideoResource } from '~/types/video';
+import { readProxyPreferences } from '~/utils/proxy-preferences';
 
 /**
  * 代理实例
@@ -71,9 +72,15 @@ function now() {
 
 class ProxyPool {
   proxies: ProxyInstance[] = [];
+  private readonly defaultProxyUrls: string[];
 
   constructor(proxyUrls: string[]) {
-    this.proxies = proxyUrls.map(url => ({
+    this.defaultProxyUrls = [...proxyUrls];
+    this.proxies = this.createProxyInstances(proxyUrls);
+  }
+
+  private createProxyInstances(proxyUrls: string[]) {
+    return proxyUrls.map(url => ({
       id: uuid(),
       address: url,
       busy: false,
@@ -90,26 +97,7 @@ class ProxyPool {
    * 可以传入新的代理地址列表（私有代理地址）
    */
   init(proxyUrls: string[] = []) {
-    if (proxyUrls.length > 0) {
-      this.proxies = proxyUrls.map(url => ({
-        id: uuid(),
-        address: url,
-        busy: false,
-        cooldown: false,
-        usageCount: 0,
-        successCount: 0,
-        failureCount: 0,
-        traffic: 0,
-      }));
-    } else {
-      this.proxies.forEach(proxy => {
-        proxy.busy = false;
-        proxy.cooldown = false;
-        proxy.usageCount = 0;
-        proxy.successCount = 0;
-        proxy.failureCount = 0;
-      });
-    }
+    this.proxies = this.createProxyInstances(proxyUrls.length > 0 ? proxyUrls : this.defaultProxyUrls);
   }
 
   /**
@@ -172,6 +160,7 @@ class ProxyPool {
 
 // 代理池
 export const pool = new ProxyPool(PUBLIC_PROXY_LIST);
+export let proxyAuthorization = '';
 
 /**
  * 使用代理 proxy 下载资源
@@ -285,19 +274,12 @@ export async function downloads<T extends DownloadResource>(
   downloadFn: DownloadFn<T>,
   useProxy = true
 ) {
-  // 检查是否设置了私有代理地址
-  const privateProxy: string[] = [];
-  try {
-    const proxy = JSON.parse(window.localStorage.getItem('wechat-proxy')!);
-    if (Array.isArray(proxy) && proxy.length > 0) {
-      privateProxy.push(...proxy);
-    }
-  } catch (e) {
-    console.log(e);
-  }
+  const proxyPreferences =
+    typeof window === 'undefined' ? { urls: [], authorization: '' } : readProxyPreferences(window.localStorage);
+  proxyAuthorization = proxyPreferences.authorization;
 
   // 初始化 pool
-  pool.init(privateProxy);
+  pool.init(proxyPreferences.urls);
 
   const queue = new PQueue({ concurrency: pool.proxies.length });
 

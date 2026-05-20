@@ -1,4 +1,5 @@
 import { request } from '#shared/utils/request';
+import { isWechatMpUrl } from '#shared/utils/wechat-url';
 import { ACCOUNT_LIST_PAGE_SIZE, ARTICLE_LIST_PAGE_SIZE } from '~/config';
 import { updateArticleCache } from '~/store/v2/article';
 import { type MpAccount, updateLastUpdateTime } from '~/store/v2/info';
@@ -73,6 +74,23 @@ export async function getArticleList(
  * @param keyword
  */
 export async function getAccountList(begin = 0, keyword = ''): Promise<[AccountInfo[], boolean]> {
+  if (isWechatMpUrl(keyword)) {
+    const resp = await request<SearchBizResponse>('/api/web/mp/searchbyurl', {
+      query: {
+        url: keyword.trim(),
+      },
+    });
+
+    if (resp.base_resp.ret === 0) {
+      return [resp.list, true];
+    } else if (resp.base_resp.ret === 200003) {
+      loginAccount.value = null;
+      throw new Error('session expired');
+    } else {
+      throw new Error(`${resp.base_resp.ret}:${resp.base_resp.err_msg}`);
+    }
+  }
+
   const resp = await request<SearchBizResponse>('/api/web/mp/searchbiz', {
     query: {
       begin: begin,
