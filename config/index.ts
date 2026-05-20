@@ -1,6 +1,12 @@
 import dayjs from 'dayjs';
 
 /**
+ * 项目标识
+ */
+export const APP_NAME = 'wx-exporter';
+export const APP_REPOSITORY_URL = 'https://github.com/ting2tao/wx-exporter';
+
+/**
  * 是否在开发环境
  */
 export const isDev = process.env.NODE_ENV === 'development';
@@ -19,6 +25,13 @@ export const ARTICLE_LIST_PAGE_SIZE = 20;
  * 公众号列表每页大小
  */
 export const ACCOUNT_LIST_PAGE_SIZE = 5;
+
+/**
+ * 账号导入导出文件标识。
+ */
+export const ACCOUNT_MANIFEST_USEFOR = APP_NAME;
+export const LEGACY_ACCOUNT_MANIFEST_USEFOR = ['wx-articles-manage'] as const;
+export const ACCOUNT_MANIFEST_USEFOR_VALUES = [ACCOUNT_MANIFEST_USEFOR, ...LEGACY_ACCOUNT_MANIFEST_USEFOR] as const;
 
 /**
  * 公众号类型

@@ -1,27 +1,8 @@
-import { createError, readBody } from 'h3';
-import { loginWithPassword } from '~/server/utils/app-auth';
+import { createError } from 'h3';
 
-interface LoginBody {
-  username?: string;
-  password?: string;
-}
-
-export default defineEventHandler(async event => {
-  const body = await readBody<LoginBody>(event);
-  const username = body?.username?.trim() || '';
-  const password = body?.password || '';
-
-  if (!username || !password) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '请输入账号和密码',
-    });
-  }
-
-  const session = await loginWithPassword(event, username, password);
-
-  return {
-    authenticated: true,
-    username: session.username,
-  };
+export default defineEventHandler(async () => {
+  throw createError({
+    statusCode: 410,
+    statusMessage: '密码登录已停用，请使用微信扫码登录',
+  });
 });

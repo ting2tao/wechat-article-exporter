@@ -1,5 +1,3 @@
-import { getDb } from './db';
-
 export interface MpAccount {
   fakeid: string;
   completed: boolean;
@@ -24,47 +22,16 @@ export interface MpAccount {
  * 更新 account 缓存
  * @param mpAccount
  */
-export async function updateInfoCache(mpAccount: MpAccount): Promise<boolean> {
-  const db = getDb();
-  return db.transaction('rw', 'info', async () => {
-    let infoCache = await db.info.get(mpAccount.fakeid);
-    if (infoCache) {
-      if (mpAccount.completed) {
-        infoCache.completed = mpAccount.completed;
-      }
-      infoCache.count += mpAccount.count;
-      infoCache.articles += mpAccount.articles;
-      infoCache.nickname = mpAccount.nickname;
-      infoCache.round_head_img = mpAccount.round_head_img;
-      infoCache.total_count = mpAccount.total_count;
-      infoCache.update_time = Math.round(Date.now() / 1000);
-    } else {
-      infoCache = {
-        fakeid: mpAccount.fakeid,
-        completed: mpAccount.completed,
-        count: mpAccount.count,
-        articles: mpAccount.articles,
-        nickname: mpAccount.nickname,
-        round_head_img: mpAccount.round_head_img,
-        total_count: mpAccount.total_count,
-        create_time: Math.round(Date.now() / 1000),
-        update_time: Math.round(Date.now() / 1000),
-      };
-    }
-    db.info.put(infoCache);
-    return true;
+export async function updateInfoCache(mpAccount: MpAccount): Promise<void> {
+  await $fetch('/api/web/data/accounts/upsert', {
+    method: 'POST',
+    body: { accounts: [mpAccount] },
   });
 }
 
-export async function updateLastUpdateTime(fakeid: string): Promise<boolean> {
-  const db = getDb();
-  return db.transaction('rw', 'info', async () => {
-    let infoCache = await db.info.get(fakeid);
-    if (infoCache) {
-      infoCache.last_update_time = Math.round(Date.now() / 1000);
-      db.info.put(infoCache);
-    }
-    return true;
+export async function updateLastUpdateTime(fakeid: string): Promise<void> {
+  await $fetch(`/api/web/data/accounts/${fakeid}/last-update`, {
+    method: 'PUT',
   });
 }
 
@@ -73,19 +40,21 @@ export async function updateLastUpdateTime(fakeid: string): Promise<boolean> {
  * @param fakeid
  */
 export async function getInfoCache(fakeid: string): Promise<MpAccount | undefined> {
-  const db = getDb();
-  return db.info.get(fakeid);
+  try {
+    return await $fetch(`/api/web/data/accounts/${fakeid}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getAllInfo(): Promise<MpAccount[]> {
-  const db = getDb();
-  return db.info.toArray();
+  return $fetch('/api/web/data/accounts');
 }
 
 export async function replaceAllInfo(mpAccounts: MpAccount[]): Promise<void> {
-  const db = getDb();
-  await db.transaction('rw', 'info', async () => {
-    await db.info.bulkPut(mpAccounts);
+  await $fetch('/api/web/data/accounts/replace', {
+    method: 'POST',
+    body: { accounts: mpAccounts },
   });
 }
 
@@ -101,15 +70,8 @@ export async function getAccountNameByFakeid(fakeid: string): Promise<string | n
 
 // 批量导入公众号
 export async function importMpAccounts(mpAccounts: MpAccount[]): Promise<void> {
-  for (const mpAccount of mpAccounts) {
-    // 导入时需要把相关数量置空
-    mpAccount.completed = false;
-    mpAccount.count = 0;
-    mpAccount.articles = 0;
-    mpAccount.total_count = 0;
-    mpAccount.create_time = undefined;
-    mpAccount.update_time = undefined;
-    mpAccount.last_update_time = undefined;
-    await updateInfoCache(mpAccount);
-  }
+  await $fetch('/api/web/data/accounts/import', {
+    method: 'POST',
+    body: { accounts: mpAccounts },
+  });
 }

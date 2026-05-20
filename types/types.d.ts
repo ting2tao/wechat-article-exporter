@@ -163,6 +163,7 @@ export interface AppMsgEx {
   pic_cdn_url_235_1: string;
   title: string;
   update_time: number;
+  html_downloaded?: boolean;
 }
 
 export type AppMsgExWithFakeID = AppMsgEx & {

@@ -22,7 +22,7 @@ import ConfirmModal from '~/components/modal/Confirm.vue';
 import LoginModal from '~/components/modal/Login.vue';
 import toastFactory from '~/composables/toast';
 import useLoginCheck from '~/composables/useLoginCheck';
-import { IMAGE_PROXY, websiteName } from '~/config';
+import { ACCOUNT_MANIFEST_USEFOR, ACCOUNT_MANIFEST_USEFOR_VALUES, IMAGE_PROXY, websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { deleteAccountData } from '~/store/v2';
 import { getArticleCache, hitCache } from '~/store/v2/article';
@@ -450,7 +450,7 @@ async function handleFileChange(evt: Event) {
 
       // 解析 JSON
       const jsonData = JSON.parse(await file.text());
-      if (jsonData.usefor !== 'wx-articles-manage') {
+      if (!ACCOUNT_MANIFEST_USEFOR_VALUES.includes(jsonData.usefor)) {
         // 文件格式不正确
         toast.error('导入公众号失败', '导入文件格式不正确，请选择该网站导出的文件进行导入。');
         return;
@@ -482,7 +482,7 @@ function exportAccount() {
     const rows = getSelectedRows();
     const data: AccountManifest = {
       version: '1.0',
-      usefor: 'wx-articles-manage',
+      usefor: ACCOUNT_MANIFEST_USEFOR,
       accounts: rows,
     };
     exportAccountJsonFile(data, '公众号');

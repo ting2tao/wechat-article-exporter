@@ -1,5 +1,4 @@
 import type { AppMsgExWithFakeID, PublishInfo, PublishPage } from '~/types/types';
-import { getDb } from './db';
 import { type MpAccount, updateInfoCache } from './info';
 
 export type ArticleAsset = AppMsgExWithFakeID;
@@ -10,45 +9,54 @@ export type ArticleAsset = AppMsgExWithFakeID;
  * @param publish_page
  */
 export async function updateArticleCache(account: MpAccount, publish_page: PublishPage) {
-  const db = getDb();
-  await db.transaction('rw', ['article', 'info'], async () => {
-    const keys = await db.article.toCollection().keys();
+  const fakeid = account.fakeid;
+  const total_count = publish_page.total_count;
+  const publish_list = publish_page.publish_list.filter(item => !!item.publish_info);
 
-    const fakeid = account.fakeid;
-    const total_count = publish_page.total_count;
-    const publish_list = publish_page.publish_list.filter(item => !!item.publish_info);
+  // 统计本次缓存成功新增的数量
+  let msgCount = 0;
+  let articleCount = 0;
 
-    // 统计本次缓存成功新增的数量
-    let msgCount = 0;
-    let articleCount = 0;
+  const articlesToUpsert: AppMsgExWithFakeID[] = [];
 
-    for (const item of publish_list) {
-      const publish_info: PublishInfo = JSON.parse(item.publish_info);
-      let newEntryCount = 0;
+  for (const item of publish_list) {
+    let publish_info: PublishInfo;
+    try {
+      publish_info = JSON.parse(item.publish_info);
+    } catch {
+      console.warn(`Failed to parse publish_info for item, skipping`);
+      continue;
+    }
+    let newEntryCount = 0;
 
-      for (const article of publish_info.appmsgex) {
-        const key = await db.article.put({ ...article, fakeid, _status: '' }, `${fakeid}:${article.aid}`);
-        if (!keys.includes(key)) {
-          newEntryCount++;
-          articleCount++;
-        }
-      }
-
-      if (newEntryCount > 0) {
-        // 新增成功
-        msgCount++;
-      }
+    for (const article of publish_info.appmsgex) {
+      articlesToUpsert.push({ ...article, fakeid, _status: '' });
+      newEntryCount++;
+      articleCount++;
     }
 
-    await updateInfoCache({
-      fakeid: fakeid,
-      completed: publish_list.length === 0,
-      count: msgCount,
-      articles: articleCount,
-      nickname: account.nickname,
-      round_head_img: account.round_head_img,
-      total_count: total_count,
+    if (newEntryCount > 0) {
+      msgCount++;
+    }
+  }
+
+  // Batch upsert articles
+  if (articlesToUpsert.length > 0) {
+    await $fetch('/api/web/data/articles/upsert', {
+      method: 'POST',
+      body: { articles: articlesToUpsert },
     });
+  }
+
+  // Update account info
+  await updateInfoCache({
+    fakeid: fakeid,
+    completed: publish_list.length === 0,
+    count: msgCount,
+    articles: articleCount,
+    nickname: account.nickname,
+    round_head_img: account.round_head_img,
+    total_count: total_count,
   });
 }
 
@@ -58,13 +66,10 @@ export async function updateArticleCache(account: MpAccount, publish_page: Publi
  * @param create_time 创建时间
  */
 export async function hitCache(fakeid: string, create_time: number): Promise<boolean> {
-  const db = getDb();
-  const count = await db.article
-    .where('fakeid')
-    .equals(fakeid)
-    .and(article => article.create_time < create_time)
-    .count();
-  return count > 0;
+  const result = await $fetch<{ hit: boolean }>('/api/web/data/articles/hit', {
+    query: { fakeid, before: create_time },
+  });
+  return result.hit;
 }
 
 /**
@@ -73,13 +78,9 @@ export async function hitCache(fakeid: string, create_time: number): Promise<boo
  * @param create_time 创建时间
  */
 export async function getArticleCache(fakeid: string, create_time: number): Promise<AppMsgExWithFakeID[]> {
-  const db = getDb();
-  return db.article
-    .where('fakeid')
-    .equals(fakeid)
-    .and(article => article.create_time < create_time)
-    .reverse()
-    .sortBy('create_time');
+  return $fetch('/api/web/data/articles', {
+    query: { fakeid, before: create_time },
+  });
 }
 
 export async function upsertArticleCacheRecords(articles: AppMsgExWithFakeID[]): Promise<void> {
@@ -87,11 +88,9 @@ export async function upsertArticleCacheRecords(articles: AppMsgExWithFakeID[]):
     return;
   }
 
-  const db = getDb();
-  await db.transaction('rw', 'article', async () => {
-    const values = articles.map(article => ({ ...article, _status: article._status || '' }));
-    const keys = articles.map(article => `${article.fakeid}:${article.aid}`);
-    await db.article.bulkPut(values, keys);
+  await $fetch('/api/web/data/articles/upsert', {
+    method: 'POST',
+    body: { articles },
   });
 }
 
@@ -100,27 +99,16 @@ export async function upsertArticleCacheRecords(articles: AppMsgExWithFakeID[]):
  * @param url
  */
 export async function getArticleByLink(url: string): Promise<AppMsgExWithFakeID> {
-  const db = getDb();
-  const article = await db.article.where('link').equals(url).first();
-  if (!article) {
-    throw new Error(`Article(${url}) does not exist`);
-  }
-  return article;
+  return $fetch('/api/web/data/articles/by-link', {
+    query: { url },
+  });
 }
 
 // 根据 url 获取 SINGLE_ARTICLE_FAKEID 文章对象
 export async function getSingleArticleByLink(url: string): Promise<AppMsgExWithFakeID> {
-  const db = getDb();
-  const article = await db.article
-    .where('link')
-    .equals(url)
-    .and(article => article.fakeid === 'SINGLE_ARTICLE_FAKEID')
-    .first();
-  if (!article) {
-    throw new Error(`Article(${url}) does not exist`);
-  }
-
-  return article;
+  return $fetch('/api/web/data/articles/single-by-link', {
+    query: { url },
+  });
 }
 
 /**
@@ -129,14 +117,9 @@ export async function getSingleArticleByLink(url: string): Promise<AppMsgExWithF
  * @param is_deleted
  */
 export async function articleDeleted(url: string, is_deleted = true): Promise<void> {
-  const db = getDb();
-  await db.transaction('rw', 'article', async () => {
-    await db.article
-      .where('link')
-      .equals(url)
-      .modify(article => {
-        article.is_deleted = is_deleted;
-      });
+  await $fetch('/api/web/data/articles/deleted', {
+    method: 'PUT',
+    body: { url, is_deleted },
   });
 }
 
@@ -146,14 +129,9 @@ export async function articleDeleted(url: string, is_deleted = true): Promise<vo
  * @param status
  */
 export async function updateArticleStatus(url: string, status: string): Promise<void> {
-  const db = getDb();
-  await db.transaction('rw', 'article', async () => {
-    await db.article
-      .where('link')
-      .equals(url)
-      .modify(article => {
-        article._status = status;
-      });
+  await $fetch('/api/web/data/articles/status', {
+    method: 'PUT',
+    body: { url, status },
   });
 }
 
@@ -163,17 +141,8 @@ export async function updateArticleStatus(url: string, status: string): Promise<
  * @param fakeid
  */
 export async function updateArticleFakeid(url: string, fakeid: string): Promise<void> {
-  const db = getDb();
-  await db.transaction('rw', 'article', async () => {
-    await db.article
-      .where('link')
-      .equals(url)
-      .and(article => article.fakeid === 'SINGLE_ARTICLE_FAKEID')
-      .modify(article => {
-        article.fakeid = fakeid;
-
-        // 标记改数据是【单篇文章下载】添加的
-        article._single = true;
-      });
+  await $fetch('/api/web/data/articles/fakeid', {
+    method: 'PUT',
+    body: { url, fakeid },
   });
 }

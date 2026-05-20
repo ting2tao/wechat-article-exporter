@@ -1,10 +1,12 @@
 import {
+  normalizeAlertWebhookUrl,
   normalizeWorkerSchedulerConfig,
   validateSchedulerConfigSelection,
 } from '~/server/services/worker/config-helpers';
 import { getSchedulerConfig, getSchedulerSnapshot, updateSchedulerConfig } from '~/server/services/worker/repository';
 import { refreshWorkerSchedule } from '~/server/services/worker/scheduler';
 import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
+import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 
 export default defineEventHandler(async event => {
   const body = await readBody<{
@@ -23,7 +25,8 @@ export default defineEventHandler(async event => {
   }>(event);
 
   const authKey = getAuthKeyFromRequest(event);
-  const current = await getSchedulerConfig(authKey);
+  const scopeId = authKey ? await resolveScopeIdFromRequest(event) : null;
+  const current = await getSchedulerConfig(scopeId);
   const wantsEnable =
     Boolean(body.syncEnabled ?? current.syncEnabled) || Boolean(body.downloadEnabled ?? current.downloadEnabled);
 
@@ -56,7 +59,16 @@ export default defineEventHandler(async event => {
     });
   }
 
-  const scopeId = authKey || null;
+  const alertWebhookUrl =
+    body.alertWebhookUrl === undefined ? current.alertWebhookUrl : normalizeAlertWebhookUrl(body.alertWebhookUrl);
+  if (body.alertWebhookUrl?.trim() && !alertWebhookUrl) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: '后台任务配置无效',
+      message: '企业微信 webhook 地址必须是有效的 http(s) URL',
+    });
+  }
+
   await updateSchedulerConfig(
     {
       syncEnabled: body.syncEnabled ?? current.syncEnabled,
@@ -68,7 +80,7 @@ export default defineEventHandler(async event => {
       downloadRecentDays: nextSelection.downloadRecentDays,
       downloadDateStart: nextSelection.downloadDateStart,
       downloadDateEnd: nextSelection.downloadDateEnd,
-      alertWebhookUrl: body.alertWebhookUrl?.trim() ?? current.alertWebhookUrl,
+      alertWebhookUrl,
       selectedAccountFakeids: nextSelection.selectedAccountFakeids,
       selectedExportFormats: nextSelection.selectedExportFormats,
       authKey: authKey || undefined,

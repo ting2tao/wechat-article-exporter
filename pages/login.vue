@@ -1,69 +1,128 @@
 <script setup lang="ts">
-import type { FormError, FormSubmitEvent } from '#ui/types';
-import toastFactory from '~/composables/toast';
+import { request } from '#shared/utils/request';
+import type { LoginAccount, ScanLoginResult, StartLoginResult } from '~/types/types';
 import { websiteName } from '~/config';
 
-interface LoginFormState {
-  username: string;
-  password: string;
-}
-
-const route = useRoute();
-const toast = toastFactory();
-const { login } = useAppAuth();
-
-const formState = reactive<LoginFormState>({
-  username: 'admin',
-  password: '121212',
-});
-
+const qrcodeSrc = ref('');
 const loading = ref(false);
+const msg = ref('');
+const checkTimer = ref<number | null>(null);
+const loginAccount = useLoginAccount();
+const { refreshSession } = useAppAuth();
 
-useHead({
-  title: `系统登录 | ${websiteName}`,
+onMounted(() => {
+  getQrcode();
 });
 
-function validate(state: LoginFormState): FormError[] {
-  const errors: FormError[] = [];
-
-  if (!state.username.trim()) {
-    errors.push({
-      path: 'username',
-      message: '请输入账号',
-    });
+onUnmounted(() => {
+  if (checkTimer.value) {
+    window.clearTimeout(checkTimer.value);
+    checkTimer.value = null;
   }
+});
 
-  if (!state.password) {
-    errors.push({
-      path: 'password',
-      message: '请输入密码',
-    });
+async function newLoginSession() {
+  const sid = new Date().getTime().toString() + Math.floor(Math.random() * 100);
+  const resp = await request<StartLoginResult>(`/api/web/login/session/${sid}`, { method: 'POST' });
+  if (!resp || !resp.base_resp || resp.base_resp.ret !== 0) {
+    throw new Error(`${resp?.base_resp?.err_msg || '获取登录会话失败'}`);
   }
-
-  return errors;
 }
 
-async function submit(event: FormSubmitEvent<LoginFormState>) {
-  if (loading.value) {
-    return;
-  }
-
-  loading.value = true;
-
+async function getQrcode() {
   try {
-    await login({
-      username: event.data.username.trim(),
-      password: event.data.password,
-    });
-
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard/account';
-    await navigateTo(redirect);
-  } catch (error) {
-    toast.error('登录失败', error instanceof Error ? error.message : '账号或密码错误');
+    loading.value = true;
+    msg.value = '获取登录二维码';
+    await newLoginSession();
+    qrcodeSrc.value = `/api/web/login/getqrcode?rnd=${Math.random()}`;
+    msg.value = '';
+    scheduleCheck();
+  } catch (e: any) {
+    msg.value = e.message;
+    qrcodeSrc.value = '';
   } finally {
     loading.value = false;
   }
 }
+
+function scheduleCheck() {
+  if (checkTimer.value) {
+    window.clearTimeout(checkTimer.value);
+  }
+  checkTimer.value = window.setTimeout(checkQrcodeStatus, 2000);
+}
+
+async function checkQrcodeStatus() {
+  try {
+    const resp = await request<ScanLoginResult>('/api/web/login/scan');
+    if (!resp || !resp.base_resp || resp.base_resp.ret !== 0) {
+      scheduleCheck();
+      return;
+    }
+
+    switch (resp.status) {
+      case 0:
+        scheduleCheck();
+        break;
+      case 1:
+        msg.value = '已确认，正在登录中';
+        await bizLogin();
+        break;
+      case 2:
+      case 3:
+        qrcodeSrc.value = `/api/web/login/getqrcode?rnd=${Math.random()}`;
+        scheduleCheck();
+        break;
+      case 4:
+      case 6:
+        if (resp.acct_size >= 1) {
+          loading.value = true;
+          msg.value = '扫码成功，等待确认';
+          qrcodeSrc.value = '';
+        } else {
+          msg.value = '没有可登录账号';
+        }
+        scheduleCheck();
+        break;
+      case 5:
+        msg.value = '该账号尚未绑定邮箱';
+        scheduleCheck();
+        break;
+    }
+  } catch {
+    scheduleCheck();
+  }
+}
+
+async function bizLogin() {
+  try {
+    loading.value = true;
+    const resp = await request<LoginAccount>('/api/web/login/bizlogin', {
+      method: 'POST',
+    });
+    if (resp.err) {
+      throw new Error(resp.err);
+    }
+
+    loginAccount.value = resp;
+    await refreshSession(true);
+    msg.value = '登录成功';
+    if (checkTimer.value) {
+      window.clearTimeout(checkTimer.value);
+      checkTimer.value = null;
+    }
+    await navigateTo('/dashboard/account', { replace: true });
+  } catch (e: any) {
+    msg.value = e.message;
+    loading.value = false;
+    // 登录失败后重新获取二维码
+    setTimeout(() => getQrcode(), 2000);
+  }
+}
+
+useHead({
+  title: `登录 | ${websiteName}`,
+});
 </script>
 
 <template>
@@ -71,29 +130,32 @@ async function submit(event: FormSubmitEvent<LoginFormState>) {
     <UCard class="w-full max-w-md shadow-lg">
       <template #header>
         <div class="space-y-1">
-          <h1 class="text-2xl font-bold text-slate-900">系统登录</h1>
+          <h1 class="text-2xl font-bold text-slate-900">微信公众号登录</h1>
           <p class="text-sm text-slate-500">
-            默认账号密码为 <span class="font-mono font-medium">admin / 121212</span>，登录后可在设置页修改。
+            使用微信扫码登录公众号后台，登录后即可同步和导出文章。
           </p>
         </div>
       </template>
 
-      <UForm :state="formState" :validate="validate" class="space-y-4" @submit="submit">
-        <UFormGroup label="账号" name="username" required>
-          <UInput v-model="formState.username" placeholder="请输入账号" autocomplete="username" />
-        </UFormGroup>
+      <div class="flex flex-col items-center gap-4 py-4">
+        <div class="flex flex-col justify-center items-center size-72">
+          <UIcon v-if="loading && !qrcodeSrc" name="i-lucide:loader" :size="28" class="animate-spin text-slate-500" />
+          <p v-if="msg" class="text-sm text-center" :class="msg === '登录成功' ? 'text-green-600' : 'text-rose-500'">
+            {{ msg }}
+          </p>
+          <img v-if="qrcodeSrc" :src="qrcodeSrc" alt="扫码登录" class="w-full rounded-md" />
+        </div>
 
-        <UFormGroup label="密码" name="password" required>
-          <UInput
-            v-model="formState.password"
-            type="password"
-            placeholder="请输入密码"
-            autocomplete="current-password"
-          />
-        </UFormGroup>
-
-        <UButton type="submit" block color="black" :loading="loading">登录系统</UButton>
-      </UForm>
+        <UButton
+          v-if="msg && !loading"
+          variant="soft"
+          color="gray"
+          size="sm"
+          @click="getQrcode"
+        >
+          刷新二维码
+        </UButton>
+      </div>
     </UCard>
   </div>
 </template>

@@ -1,5 +1,3 @@
-import { getDb } from './db';
-
 export interface ResourceAsset {
   fakeid: string;
   url: string;
@@ -11,11 +9,18 @@ export interface ResourceAsset {
  * @param resource 缓存
  */
 export async function updateResourceCache(resource: ResourceAsset): Promise<boolean> {
-  const db = getDb();
-  return db.transaction('rw', 'resource', async () => {
-    await db.resource.put(resource);
-    return true;
+  const formData = new FormData();
+  formData.append('fakeid', resource.fakeid);
+  formData.append('url', resource.url);
+  formData.append('contentType', resource.file.type || 'application/octet-stream');
+  formData.append('file', resource.file, 'resource');
+
+  await $fetch('/api/web/data/resources', {
+    method: 'POST',
+    body: formData,
   });
+
+  return true;
 }
 
 /**
@@ -23,6 +28,15 @@ export async function updateResourceCache(resource: ResourceAsset): Promise<bool
  * @param url
  */
 export async function getResourceCache(url: string): Promise<ResourceAsset | undefined> {
-  const db = getDb();
-  return db.resource.get(url);
+  try {
+    const response = await fetch(`/api/web/data/resources?url=${encodeURIComponent(url)}`);
+    if (!response.ok) return undefined;
+
+    const blob = await response.blob();
+    // Extract fakeid from response header or use empty string
+    const fakeid = response.headers.get('X-Fakeid') || '';
+    return { fakeid, url, file: blob };
+  } catch {
+    return undefined;
+  }
 }

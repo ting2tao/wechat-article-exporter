@@ -19,7 +19,6 @@ const props = withDefaults(
 const loginAccount = useLoginAccount();
 const modal = useModal();
 const toast = toastFactory();
-const { authState, logout: logoutAppAuth } = useAppAuth();
 
 const now = ref(new Date());
 const distance = computed(() => {
@@ -88,7 +87,6 @@ function login() {
 }
 
 const logoutBtnLoading = ref(false);
-const appLogoutLoading = ref(false);
 
 async function logoutMp() {
   if (logoutBtnLoading.value) {
@@ -108,23 +106,6 @@ async function logoutMp() {
   } finally {
     loginAccount.value = null;
     logoutBtnLoading.value = false;
-  }
-}
-
-async function logoutApp() {
-  if (appLogoutLoading.value) {
-    return;
-  }
-
-  appLogoutLoading.value = true;
-
-  try {
-    await logoutAppAuth();
-    await navigateTo('/login');
-  } catch (error) {
-    toast.error('退出系统失败', error instanceof Error ? error.message : '请稍后重试');
-  } finally {
-    appLogoutLoading.value = false;
   }
 }
 
@@ -166,14 +147,6 @@ onUnmounted(() => {
         <span class="workspace-top-status__subtle">公众号未登录</span>
         <UButton color="black" size="xs" class="workspace-top-status__login-button" @click="login">登录公众号</UButton>
       </template>
-    </div>
-
-    <div v-if="authState.username" class="workspace-top-status__item">
-      <div class="workspace-top-status__meta">
-        <span class="workspace-top-status__name">{{ authState.username }}</span>
-        <span class="workspace-top-status__subtle">系统已登录</span>
-      </div>
-      <UButton icon="i-lucide:log-out" :loading="appLogoutLoading" color="gray" variant="ghost" square @click="logoutApp" />
     </div>
 
     <div class="workspace-top-status__storage">
@@ -234,25 +207,6 @@ onUnmounted(() => {
         </div>
         <UButton color="black" class="workspace-status__button" @click="login">登录公众号</UButton>
       </div>
-    </div>
-
-    <div v-if="authState.username" class="workspace-status__card">
-      <div class="workspace-status__label">系统登录</div>
-      <div class="workspace-status__meta">
-        <span>当前账号</span>
-        <span class="font-mono font-medium text-[#2d241b]">{{ authState.username }}</span>
-      </div>
-      <UButton
-        color="gray"
-        variant="outline"
-        icon="i-lucide:log-out"
-        :loading="appLogoutLoading"
-        block
-        class="workspace-status__button workspace-status__button--outline"
-        @click="logoutApp"
-      >
-        退出系统
-      </UButton>
     </div>
 
     <div class="workspace-status__card workspace-status__card--quiet">

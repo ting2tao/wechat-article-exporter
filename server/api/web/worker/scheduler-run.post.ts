@@ -1,6 +1,7 @@
 import { getSchedulerSnapshot } from '~/server/services/worker/repository';
 import { queueWorkerTask } from '~/server/services/worker/scheduler';
 import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
+import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 
 export default defineEventHandler(async event => {
   const body = await readBody<{ task?: 'sync' | 'download' }>(event);
@@ -12,9 +13,10 @@ export default defineEventHandler(async event => {
   }
 
   const authKey = getAuthKeyFromRequest(event);
-  const started = await queueWorkerTask(body.task, authKey);
+  const scopeId = await resolveScopeIdFromRequest(event);
+  const started = await queueWorkerTask(body.task, authKey, scopeId);
   return {
     started,
-    snapshot: await getSchedulerSnapshot(authKey),
+    snapshot: await getSchedulerSnapshot(scopeId),
   };
 });

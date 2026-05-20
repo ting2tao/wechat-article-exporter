@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./assets/logo.svg" alt="wx-articles-manage logo" width="120">
+  <img src="./assets/logo.svg" alt="wx-exporter logo" width="120">
 </p>
 
-# wx-articles-manage
+# wx-exporter
 
 一款面向微信公众号后台场景的文章批量下载与导出工具。
 

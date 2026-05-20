@@ -1,5 +1,6 @@
 import { listTrackedArticlesByFakeid } from '~/server/services/worker/repository';
 import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
+import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 
 export default defineEventHandler(async event => {
   const fakeid = getQuery(event).fakeid;
@@ -15,5 +16,6 @@ export default defineEventHandler(async event => {
     return [];
   }
 
-  return listTrackedArticlesByFakeid(fakeid.trim(), authKey);
+  const scopeId = await resolveScopeIdFromRequest(event);
+  return listTrackedArticlesByFakeid(fakeid.trim(), scopeId);
 });

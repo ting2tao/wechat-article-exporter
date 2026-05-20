@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { request } from '#shared/utils/request';
 import { getCookieFromResponse, getCookiesFromRequest } from '~/server/utils/CookieStore';
 import { proxyMpRequest } from '~/server/utils/proxy-request';
+import { scopeResolver } from '~/server/utils/scope-resolver';
 
 function normalizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -88,6 +89,9 @@ export default defineEventHandler(async event => {
     // 优先使用 fakeid 作为 scopeId（公众号唯一标识，不可变），
     // 降级使用 nick_name（可修改，但同一公众号短期内通常不变）
     const scopeId = fakeid || nick_name;
+
+    // 绑定 authKey → scopeId，让不同浏览器登录同一公众号时共享数据
+    await scopeResolver.bind(authKey, scopeId);
 
     const body = JSON.stringify({
       nickname: nick_name,

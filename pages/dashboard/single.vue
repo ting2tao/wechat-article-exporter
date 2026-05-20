@@ -24,7 +24,7 @@ import toastFactory from '~/composables/toast';
 import { websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { articleDeleted, updateArticleFakeid, updateArticleStatus } from '~/store/v2/article';
-import { getDb } from '~/store/v2/db';
+import { upsertArticleCacheRecords } from '~/store/v2/article';
 import { getHtmlCache } from '~/store/v2/html';
 import type { AppMsgExWithFakeID } from '~/types/types';
 import { getStoredScopeId } from '~/utils/auth-scope';
@@ -196,9 +196,9 @@ watch(
 );
 
 onMounted(() => {
-  globalRowData.value.forEach(row => {
-    upsertArticleStub(row);
-  });
+  if (globalRowData.value.length > 0) {
+    upsertArticleCacheRecords(globalRowData.value.map(buildVirtualArticle));
+  }
 });
 
 function normalizeUrl(url: string) {
@@ -303,9 +303,8 @@ function buildVirtualArticle(row: SingleArticleRow): AppMsgExWithFakeID {
   };
 }
 
-function upsertArticleStub(row: SingleArticleRow) {
-  const db = getDb();
-  return db.article.put(buildVirtualArticle(row), `${row.fakeid}:${row.aid}`);
+async function upsertArticleStub(row: SingleArticleRow) {
+  await upsertArticleCacheRecords([buildVirtualArticle(row)]);
 }
 
 function getSelectedRows(): SingleArticleRow[] {
@@ -407,7 +406,6 @@ async function downloadRows(targetRows: SingleArticleRow[], options: { silent?: 
 }
 
 async function updateRowFromHtml(row: SingleArticleRow) {
-  const db = getDb();
   const cache = await getHtmlCache(row.link);
   if (!cache) return;
   const html = await cache.file.text();
@@ -440,7 +438,7 @@ async function updateRowFromHtml(row: SingleArticleRow) {
     }
   }
 
-  await db.article.put(
+  await upsertArticleCacheRecords([
     {
       ...buildVirtualArticle(row),
       digest: row.digest,
@@ -451,8 +449,7 @@ async function updateRowFromHtml(row: SingleArticleRow) {
       pic_cdn_url_16_9: cover,
       pic_cdn_url_235_1: cover,
     },
-    `${row.fakeid}:${row.aid}`
-  );
+  ]);
 }
 
 function previewRow(row: SingleArticleRow) {
@@ -473,11 +470,9 @@ const {
 } = useExporter();
 
 async function deleteRowData(row: SingleArticleRow) {
-  const db = getDb();
-  const key = `${row.fakeid}:${row.aid}`;
-  await db.transaction('rw', ['article', 'html'], async () => {
-    await db.article.delete(key);
-    await db.html.delete(row.link);
+  await $fetch('/api/web/data/articles', {
+    method: 'DELETE',
+    query: { fakeid: row.fakeid, aid: row.aid, url: row.link },
   });
 }
 

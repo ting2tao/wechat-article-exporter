@@ -395,25 +395,26 @@ async function tick() {
   }
 }
 
-export async function queueWorkerTask(task: 'sync' | 'download', authKey?: string | null) {
-  await recoverInterruptedTasksIfNeeded(authKey);
+export async function queueWorkerTask(task: 'sync' | 'download', authKey?: string | null, scopeId?: string | null) {
+  await recoverInterruptedTasksIfNeeded(scopeId);
   if (!authKey) {
     return false;
   }
 
+  const resolvedScopeId = scopeId || authKey;
   await updateSchedulerConfig(
     {
       authKey,
       authBoundAt: Date.now(),
     },
-    authKey
+    resolvedScopeId
   );
 
   if (activeTask) {
     return false;
   }
 
-  activeTask = runTask(authKey, task).finally(() => {
+  activeTask = runTask(resolvedScopeId, task).finally(() => {
     activeTask = null;
   });
   return true;

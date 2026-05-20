@@ -1,11 +1,21 @@
-import { clearAppSession, getAppSession } from '~/server/utils/app-auth';
+import { deleteCookie, parseCookies } from 'h3';
+import { cookieStore } from '~/server/utils/CookieStore';
+import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
+import { scopeResolver } from '~/server/utils/scope-resolver';
 
 export default defineEventHandler(async event => {
-  const session = await getAppSession(event);
-  await clearAppSession(event);
+  const authKey = getAuthKeyFromRequest(event);
+
+  if (authKey) {
+    await cookieStore.removeCookie(authKey);
+    await scopeResolver.unbind(authKey);
+  }
+
+  // 清除 auth-key cookie
+  deleteCookie(event, 'auth-key', { path: '/' });
 
   return {
     authenticated: false,
-    username: session?.username || null,
+    username: null,
   };
 });

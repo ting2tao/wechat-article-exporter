@@ -1,7 +1,7 @@
 services:
   app:
-    image: ghcr.io/ting2tao/wx-articles-manage:${IMAGE_TAG:-latest}
-    container_name: wx-articles-manage
+    image: ghcr.io/ting2tao/wx-exporter:${IMAGE_TAG:-latest}
+    container_name: wx-exporter
     restart: always
     env_file:
       - .env

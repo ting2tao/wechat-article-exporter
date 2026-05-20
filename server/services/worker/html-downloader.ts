@@ -1,6 +1,7 @@
 import { validateHTMLContent } from '#shared/utils/html';
 import { PUBLIC_PROXY_LIST } from '~/config/public-proxy';
 import { resolveScheduledExportDateRange } from '~/server/services/worker/config-helpers';
+import { buildProxyFetchUrl, getMpArticleFetchHeaders } from '~/server/services/worker/html-fetch-policy';
 import {
   listPendingHtmlArticles,
   markArticleDeleted,
@@ -42,7 +43,7 @@ async function fetchHtmlThroughProxy(url: string, proxyManager: ProxyManager) {
   for (let attempt = 0; attempt < DEFAULT_OPTIONS.MAX_RETRIES; attempt++) {
     const proxy = proxyManager.getBestProxy();
     try {
-      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent('{}')}&authorization=${authorization}`;
+      const proxyUrl = buildProxyFetchUrl(proxy, url, authorization);
       const response = await fetch(proxyUrl, {
         signal: AbortSignal.timeout(DEFAULT_OPTIONS.TIMEOUT),
         referrerPolicy: 'unsafe-url',
@@ -61,6 +62,31 @@ async function fetchHtmlThroughProxy(url: string, proxyManager: ProxyManager) {
   }
 
   throw new Error('下载 HTML 失败');
+}
+
+async function fetchHtmlDirectly(url: string) {
+  const response = await fetch(url, {
+    headers: getMpArticleFetchHeaders(),
+    signal: AbortSignal.timeout(DEFAULT_OPTIONS.TIMEOUT),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.text();
+}
+
+async function fetchHtml(url: string, proxyManager: ProxyManager) {
+  try {
+    return await fetchHtmlDirectly(url);
+  } catch (directError) {
+    try {
+      return await fetchHtmlThroughProxy(url, proxyManager);
+    } catch (proxyError) {
+      const directMessage = directError instanceof Error ? directError.message : String(directError);
+      const proxyMessage = proxyError instanceof Error ? proxyError.message : String(proxyError);
+      throw new Error(`直连失败: ${directMessage}; 代理失败: ${proxyMessage}`);
+    }
+  }
 }
 
 export async function downloadPendingHtmlBatch(
@@ -112,7 +138,7 @@ export async function downloadPendingHtmlBatch(
 
   for (const article of articles) {
     try {
-      const html = await fetchHtmlThroughProxy(article.link, proxyManager);
+      const html = await fetchHtml(article.link, proxyManager);
       const [status] = validateHTMLContent(html);
       if (status === 'Success') {
         const filePath = await writeHtmlFile(scopeId, article.fakeid, article.aid, html);

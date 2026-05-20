@@ -1,5 +1,6 @@
 import { updateSchedulerConfig, upsertTrackedAccounts } from '~/server/services/worker/repository';
 import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
+import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 import type { MpAccount } from '~/store/v2/info';
 
 export default defineEventHandler(async event => {
@@ -17,13 +18,14 @@ export default defineEventHandler(async event => {
     });
   }
 
-  await upsertTrackedAccounts(accounts, authKey);
+  const scopeId = await resolveScopeIdFromRequest(event);
+  await upsertTrackedAccounts(accounts, scopeId);
   await updateSchedulerConfig(
     {
       authKey,
       authBoundAt: Date.now(),
     },
-    authKey
+    scopeId
   );
 
   return { ok: true };

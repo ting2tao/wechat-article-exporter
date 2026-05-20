@@ -1,23 +1,26 @@
-import { getDb } from './db';
-
-interface Asset {
+export interface Asset {
   url: string;
   file: Blob;
   fakeid: string;
 }
-
-export type { Asset };
 
 /**
  * 更新 asset 缓存
  * @param asset
  */
 export async function updateAssetCache(asset: Asset): Promise<boolean> {
-  const db = getDb();
-  return db.transaction('rw', 'asset', () => {
-    db.asset.put(asset);
-    return true;
+  const formData = new FormData();
+  formData.append('fakeid', asset.fakeid);
+  formData.append('url', asset.url);
+  formData.append('contentType', asset.file.type || 'application/octet-stream');
+  formData.append('file', asset.file, 'asset');
+
+  await $fetch('/api/web/data/resources', {
+    method: 'POST',
+    body: formData,
   });
+
+  return true;
 }
 
 /**
@@ -25,7 +28,14 @@ export async function updateAssetCache(asset: Asset): Promise<boolean> {
  * @param url
  */
 export async function getAssetCache(url: string): Promise<Asset | undefined> {
-  const db = getDb();
-  db.transaction('r', 'asset', () => {});
-  return db.asset.get(url);
+  try {
+    const response = await fetch(`/api/web/data/resources?url=${encodeURIComponent(url)}`);
+    if (!response.ok) return undefined;
+
+    const blob = await response.blob();
+    const fakeid = response.headers.get('X-Fakeid') || '';
+    return { url, file: blob, fakeid };
+  } catch {
+    return undefined;
+  }
 }

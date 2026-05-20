@@ -8,6 +8,7 @@ import type {
   WorkerSchedulerStats,
 } from '~/types/worker-scheduler';
 import {
+  normalizeAlertWebhookUrl,
   normalizeScheduledExportDate,
   normalizeScheduledExportDateRangeType,
   normalizeScheduledExportRecentDays,
@@ -291,6 +292,8 @@ async function getSqlite() {
           message_count INTEGER NOT NULL DEFAULT 0,
           last_sync_at INTEGER,
           last_article_time INTEGER,
+          completed INTEGER NOT NULL DEFAULT 0,
+          last_update_time INTEGER,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
           PRIMARY KEY (scope_id, fakeid)
@@ -333,6 +336,8 @@ async function getSqlite() {
           pic_cdn_url_3_4 TEXT NOT NULL DEFAULT '',
           pic_cdn_url_16_9 TEXT NOT NULL DEFAULT '',
           pic_cdn_url_235_1 TEXT NOT NULL DEFAULT '',
+          is_single INTEGER NOT NULL DEFAULT 0,
+          comment_id TEXT,
           UNIQUE (scope_id, id),
           UNIQUE (scope_id, link),
           FOREIGN KEY (scope_id, fakeid) REFERENCES worker_scope_accounts(scope_id, fakeid) ON DELETE CASCADE
@@ -342,6 +347,63 @@ async function getSqlite() {
           ON worker_scope_articles(scope_id, fakeid, create_time DESC);
         CREATE INDEX IF NOT EXISTS idx_worker_scope_articles_pending_html
           ON worker_scope_articles(scope_id, html_downloaded, is_deleted, update_time DESC);
+
+        CREATE TABLE IF NOT EXISTS worker_scope_html (
+          scope_id TEXT NOT NULL,
+          fakeid TEXT NOT NULL,
+          url TEXT NOT NULL,
+          title TEXT NOT NULL DEFAULT '',
+          comment_id TEXT,
+          html_path TEXT,
+          file_size INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          PRIMARY KEY (scope_id, url)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scope_html_fakeid
+          ON worker_scope_html(scope_id, fakeid);
+
+        CREATE TABLE IF NOT EXISTS worker_scope_resources (
+          scope_id TEXT NOT NULL,
+          fakeid TEXT NOT NULL,
+          url TEXT NOT NULL,
+          content_type TEXT NOT NULL DEFAULT '',
+          resource_path TEXT,
+          file_size INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (scope_id, url)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scope_resources_fakeid
+          ON worker_scope_resources(scope_id, fakeid);
+
+        CREATE TABLE IF NOT EXISTS worker_scope_resource_map (
+          scope_id TEXT NOT NULL,
+          fakeid TEXT NOT NULL,
+          url TEXT NOT NULL,
+          resources TEXT NOT NULL DEFAULT '[]',
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (scope_id, url)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scope_resource_map_fakeid
+          ON worker_scope_resource_map(scope_id, fakeid);
+
+        CREATE TABLE IF NOT EXISTS worker_scope_debug (
+          scope_id TEXT NOT NULL,
+          fakeid TEXT NOT NULL,
+          url TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT '',
+          title TEXT NOT NULL DEFAULT '',
+          html_path TEXT,
+          file_size INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (scope_id, url)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scope_debug_fakeid
+          ON worker_scope_debug(scope_id, fakeid);
 
         CREATE TABLE IF NOT EXISTS worker_meta (
           key TEXT PRIMARY KEY,
@@ -376,6 +438,26 @@ async function getSqlite() {
         if (!articleColumns.includes(name)) {
           db.exec(`ALTER TABLE worker_articles ADD COLUMN ${name} ${definition}`);
         }
+      }
+
+      const scopeAccountColumns = (
+        db.prepare('PRAGMA table_info(worker_scope_accounts)').all() as Array<{ name: string }>
+      ).map(column => column.name);
+      if (!scopeAccountColumns.includes('completed')) {
+        db.exec(`ALTER TABLE worker_scope_accounts ADD COLUMN completed INTEGER NOT NULL DEFAULT 0`);
+      }
+      if (!scopeAccountColumns.includes('last_update_time')) {
+        db.exec(`ALTER TABLE worker_scope_accounts ADD COLUMN last_update_time INTEGER`);
+      }
+
+      const scopeArticleColumns = (
+        db.prepare('PRAGMA table_info(worker_scope_articles)').all() as Array<{ name: string }>
+      ).map(column => column.name);
+      if (!scopeArticleColumns.includes('is_single')) {
+        db.exec(`ALTER TABLE worker_scope_articles ADD COLUMN is_single INTEGER NOT NULL DEFAULT 0`);
+      }
+      if (!scopeArticleColumns.includes('comment_id')) {
+        db.exec(`ALTER TABLE worker_scope_articles ADD COLUMN comment_id TEXT`);
       }
 
       const configColumns = (
@@ -457,7 +539,7 @@ function mapConfig(row?: SchedulerConfigRecord): WorkerSchedulerConfig {
     downloadRecentDays: normalizeScheduledExportRecentDays(record.downloadRecentDays),
     downloadDateStart: normalizeScheduledExportDate(record.downloadDateStart),
     downloadDateEnd: normalizeScheduledExportDate(record.downloadDateEnd),
-    alertWebhookUrl: record.alertWebhookUrl || '',
+    alertWebhookUrl: normalizeAlertWebhookUrl(record.alertWebhookUrl),
     authBound: Boolean(record.authKey),
     authBoundAt: normalizeNullableNumber(record.authBoundAt),
     selectedAccountFakeids: normalizeSelectedAccountFakeids(parseStoredStringArray(record.selectedAccountFakeids)),
@@ -491,7 +573,14 @@ function normalizeWorkerScopeId(scopeId?: string | null) {
     return DEFAULT_WORKER_SCOPE;
   }
 
-  return scopeId.trim();
+  const trimmed = scopeId.trim();
+
+  // Reject path traversal characters to prevent filesystem escape
+  if (trimmed.includes('/') || trimmed.includes('\\') || trimmed.includes('..')) {
+    throw new Error(`Invalid scopeId: contains forbidden path characters`);
+  }
+
+  return trimmed;
 }
 
 function buildScopedArticleKey(scopeId: string, fakeid: string, aid: string) {
@@ -856,7 +945,10 @@ export async function updateSchedulerConfig(
       patch.downloadDateEnd === undefined
         ? normalizeScheduledExportDate(current?.download_date_end)
         : normalizeScheduledExportDate(patch.downloadDateEnd),
-    alertWebhookUrl: patch.alertWebhookUrl === undefined ? current?.alert_webhook_url || '' : patch.alertWebhookUrl,
+    alertWebhookUrl:
+      patch.alertWebhookUrl === undefined
+        ? normalizeAlertWebhookUrl(current?.alert_webhook_url)
+        : normalizeAlertWebhookUrl(patch.alertWebhookUrl),
     authKey: patch.authKey === undefined ? current?.auth_key || null : patch.authKey,
     authBoundAt: patch.authBoundAt === undefined ? current?.auth_bound_at || null : patch.authBoundAt,
     selectedAccountFakeidsJson:
@@ -1036,18 +1128,18 @@ export async function listTrackedAccounts(scopeId?: string | null): Promise<MpAc
   return rows.map(mapWorkerAccountRow);
 }
 
-function mapWorkerAccountRow(row: WorkerAccountRow): MpAccount {
+function mapWorkerAccountRow(row: WorkerAccountRow & { completed?: number; last_update_time?: number | null }): MpAccount {
   return {
     fakeid: row.fakeid,
     nickname: row.nickname || undefined,
     round_head_img: row.round_head_img || undefined,
-    completed: false,
+    completed: Boolean(row.completed),
     count: row.message_count,
     articles: row.article_count,
     total_count: row.total_count,
     create_time: Math.floor(row.created_at / 1000),
     update_time: row.last_sync_at ? Math.floor(row.last_sync_at / 1000) : undefined,
-    last_update_time: row.last_article_time || undefined,
+    last_update_time: row.last_update_time || row.last_article_time || undefined,
   };
 }
 
@@ -1072,7 +1164,7 @@ export async function listTrackedAccountsByFakeids(fakeids: string[], scopeId?: 
     .map(row => mapWorkerAccountRow(row!));
 }
 
-function mapWorkerArticleRow(row: WorkerArticleRow) {
+function mapWorkerArticleRow(row: WorkerArticleRow & { is_single?: number; comment_id?: string | null }) {
   return {
     fakeid: row.fakeid,
     aid: row.aid,
@@ -1102,8 +1194,10 @@ function mapWorkerArticleRow(row: WorkerArticleRow) {
     title: row.title,
     update_time: row.update_time,
     _status: row.status || '',
+    _single: Boolean(row.is_single),
     html_downloaded: Boolean(row.html_downloaded),
     html_updated_at: row.html_updated_at || null,
+    comment_id: row.comment_id || null,
   };
 }
 
@@ -1184,25 +1278,66 @@ export async function removeTrackedAccounts(fakeids: string[], scopeId?: string 
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
   const placeholders = fakeids.map(() => '?').join(', ');
-  const rows = sqlite.all<{ html_path: string | null }>(
-    `SELECT html_path FROM worker_scope_articles WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
-    [resolvedScopeId, ...fakeids]
-  );
+  const scopeAndFakeids = [resolvedScopeId, ...fakeids];
+
   const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
-  for (const row of rows) {
-    if (!row.html_path) continue;
-    const target = path.resolve(process.cwd(), row.html_path);
-    await fs.unlink(target).catch(() => {});
+
+  // Delete article HTML files
+  const articleRows = sqlite.all<{ html_path: string | null }>(
+    `SELECT html_path FROM worker_scope_articles WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
+    scopeAndFakeids
+  );
+  for (const row of articleRows) {
+    if (row.html_path) {
+      await fs.unlink(path.resolve(process.cwd(), row.html_path)).catch(() => {});
+    }
   }
 
-  sqlite.run(`DELETE FROM worker_scope_articles WHERE scope_id = ? AND fakeid IN (${placeholders})`, [
-    resolvedScopeId,
-    ...fakeids,
-  ]);
-  sqlite.run(`DELETE FROM worker_scope_accounts WHERE scope_id = ? AND fakeid IN (${placeholders})`, [
-    resolvedScopeId,
-    ...fakeids,
-  ]);
+  // Delete scope HTML files
+  const htmlRows = sqlite.all<{ html_path: string | null }>(
+    `SELECT html_path FROM worker_scope_html WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
+    scopeAndFakeids
+  );
+  for (const row of htmlRows) {
+    if (row.html_path) {
+      await fs.unlink(path.resolve(process.cwd(), row.html_path)).catch(() => {});
+    }
+  }
+
+  // Delete resource files
+  const resourceRows = sqlite.all<{ resource_path: string | null }>(
+    `SELECT resource_path FROM worker_scope_resources WHERE scope_id = ? AND fakeid IN (${placeholders}) AND resource_path IS NOT NULL`,
+    scopeAndFakeids
+  );
+  for (const row of resourceRows) {
+    if (row.resource_path) {
+      await fs.unlink(path.resolve(process.cwd(), row.resource_path)).catch(() => {});
+    }
+  }
+
+  // Delete debug HTML files
+  const debugRows = sqlite.all<{ html_path: string | null }>(
+    `SELECT html_path FROM worker_scope_debug WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
+    scopeAndFakeids
+  );
+  for (const row of debugRows) {
+    if (row.html_path) {
+      await fs.unlink(path.resolve(process.cwd(), row.html_path)).catch(() => {});
+    }
+  }
+
+  // Delete from all tables
+  const tables = [
+    'worker_scope_articles',
+    'worker_scope_accounts',
+    'worker_scope_html',
+    'worker_scope_resources',
+    'worker_scope_resource_map',
+    'worker_scope_debug',
+  ];
+  for (const table of tables) {
+    sqlite.run(`DELETE FROM ${table} WHERE scope_id = ? AND fakeid IN (${placeholders})`, scopeAndFakeids);
+  }
 }
 
 export async function upsertAccountArticles(
@@ -1425,4 +1560,788 @@ export async function markArticleDeleted(articleId: string, scopeId?: string | n
     `,
     [Date.now(), resolvedScopeId, articleId]
   );
+}
+
+// ==================== Account (info) operations ====================
+
+export async function updateAccountInfo(mpAccount: MpAccount, scopeId?: string | null): Promise<boolean> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+
+  const existing = sqlite.get<{ message_count: number; article_count: number; completed: number }>(
+    'SELECT message_count, article_count, completed FROM worker_scope_accounts WHERE scope_id = ? AND fakeid = ?',
+    [resolvedScopeId, mpAccount.fakeid]
+  );
+
+  if (existing) {
+    sqlite.run(
+      `
+        UPDATE worker_scope_accounts
+        SET nickname = ?,
+            round_head_img = ?,
+            total_count = ?,
+            message_count = message_count + ?,
+            article_count = article_count + ?,
+            completed = ?,
+            updated_at = ?
+        WHERE scope_id = ? AND fakeid = ?
+      `,
+      [
+        mpAccount.nickname || null,
+        mpAccount.round_head_img || null,
+        mpAccount.total_count,
+        mpAccount.count,
+        mpAccount.articles,
+        mpAccount.completed ? 1 : existing.completed,
+        now,
+        resolvedScopeId,
+        mpAccount.fakeid,
+      ]
+    );
+  } else {
+    sqlite.run(
+      `
+        INSERT INTO worker_scope_accounts (
+          scope_id, fakeid, nickname, round_head_img, total_count, article_count, message_count,
+          completed, last_sync_at, last_article_time, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)
+      `,
+      [
+        resolvedScopeId,
+        mpAccount.fakeid,
+        mpAccount.nickname || null,
+        mpAccount.round_head_img || null,
+        mpAccount.total_count,
+        mpAccount.articles,
+        mpAccount.count,
+        mpAccount.completed ? 1 : 0,
+        now,
+        now,
+      ]
+    );
+  }
+
+  return true;
+}
+
+export async function updateAccountLastUpdateTime(fakeid: string, scopeId?: string | null): Promise<boolean> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+  sqlite.run(
+    'UPDATE worker_scope_accounts SET last_update_time = ?, updated_at = ? WHERE scope_id = ? AND fakeid = ?',
+    [now, now, resolvedScopeId, fakeid]
+  );
+  return true;
+}
+
+export async function replaceAllAccountInfo(mpAccounts: MpAccount[], scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+  for (const account of mpAccounts) {
+    sqlite.run(
+      `
+        INSERT INTO worker_scope_accounts (
+          scope_id, fakeid, nickname, round_head_img, total_count, article_count, message_count,
+          completed, last_sync_at, last_article_time, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)
+        ON CONFLICT(scope_id, fakeid) DO UPDATE SET
+          nickname = excluded.nickname,
+          round_head_img = excluded.round_head_img,
+          total_count = excluded.total_count,
+          article_count = excluded.article_count,
+          message_count = excluded.message_count,
+          completed = excluded.completed,
+          updated_at = excluded.updated_at
+      `,
+      [
+        resolvedScopeId,
+        account.fakeid,
+        account.nickname || null,
+        account.round_head_img || null,
+        account.total_count,
+        account.articles,
+        account.count,
+        account.completed ? 1 : 0,
+        now,
+        now,
+      ]
+    );
+  }
+}
+
+export async function importAccountInfo(mpAccounts: MpAccount[], scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+  for (const account of mpAccounts) {
+    sqlite.run(
+      `
+        INSERT INTO worker_scope_accounts (
+          scope_id, fakeid, nickname, round_head_img, total_count, article_count, message_count,
+          completed, last_sync_at, last_article_time, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, NULL, NULL, ?, ?)
+        ON CONFLICT(scope_id, fakeid) DO UPDATE SET
+          nickname = excluded.nickname,
+          round_head_img = excluded.round_head_img,
+          total_count = 0,
+          article_count = 0,
+          message_count = 0,
+          completed = 0,
+          last_sync_at = NULL,
+          last_article_time = NULL,
+          updated_at = excluded.updated_at
+      `,
+      [resolvedScopeId, account.fakeid, account.nickname || null, account.round_head_img || null, now, now]
+    );
+  }
+}
+
+export async function getAccountInfo(fakeid: string, scopeId?: string | null): Promise<MpAccount | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const row = sqlite.get<WorkerAccountRow & { completed: number; last_update_time: number | null }>(
+    'SELECT * FROM worker_scope_accounts WHERE scope_id = ? AND fakeid = ?',
+    [resolvedScopeId, fakeid]
+  );
+  if (!row) return undefined;
+  return {
+    fakeid: row.fakeid,
+    nickname: row.nickname || undefined,
+    round_head_img: row.round_head_img || undefined,
+    completed: Boolean(row.completed),
+    count: row.message_count,
+    articles: row.article_count,
+    total_count: row.total_count,
+    create_time: Math.floor(row.created_at / 1000),
+    update_time: row.last_sync_at ? Math.floor(row.last_sync_at / 1000) : undefined,
+    last_update_time: row.last_update_time || undefined,
+  };
+}
+
+export async function getAllAccountInfo(scopeId?: string | null): Promise<MpAccount[]> {
+  return listTrackedAccounts(scopeId);
+}
+
+export async function getAccountNameByFakeid(fakeid: string, scopeId?: string | null): Promise<string | null> {
+  const info = await getAccountInfo(fakeid, scopeId);
+  return info?.nickname || null;
+}
+
+// ==================== Article operations ====================
+
+export async function getArticleByLink(url: string, scopeId?: string | null) {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const row = sqlite.get<WorkerArticleRow>(
+    'SELECT * FROM worker_scope_articles WHERE scope_id = ? AND link = ?',
+    [resolvedScopeId, url]
+  );
+  if (!row) throw new Error(`Article(${url}) does not exist`);
+  return mapWorkerArticleRow(row);
+}
+
+export async function getSingleArticleByLink(url: string, scopeId?: string | null) {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const row = sqlite.get<WorkerArticleRow>(
+    "SELECT * FROM worker_scope_articles WHERE scope_id = ? AND link = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
+    [resolvedScopeId, url]
+  );
+  if (!row) throw new Error(`Article(${url}) does not exist`);
+  return mapWorkerArticleRow(row);
+}
+
+export async function getArticleCache(fakeid: string, createTime: number, scopeId?: string | null) {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const rows = sqlite.all<WorkerArticleRow>(
+    `
+      SELECT * FROM worker_scope_articles
+      WHERE scope_id = ? AND fakeid = ? AND create_time < ?
+      ORDER BY create_time DESC
+    `,
+    [resolvedScopeId, fakeid, createTime]
+  );
+  return rows.map(mapWorkerArticleRow);
+}
+
+export async function hitArticleCache(fakeid: string, createTime: number, scopeId?: string | null): Promise<boolean> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const result = sqlite.get<{ count: number }>(
+    'SELECT COUNT(*) as count FROM worker_scope_articles WHERE scope_id = ? AND fakeid = ? AND create_time < ?',
+    [resolvedScopeId, fakeid, createTime]
+  );
+  return (result?.count || 0) > 0;
+}
+
+export async function upsertArticleCacheRecords(
+  articles: Array<{
+    fakeid: string;
+    aid: string;
+    title: string;
+    link: string;
+    cover?: string;
+    digest?: string;
+    create_time: number;
+    update_time: number;
+    itemidx: number;
+    is_deleted?: boolean;
+    _status?: string;
+    _single?: boolean;
+    author_name?: string;
+    album_id?: string;
+    appmsg_album_infos?: any[];
+    appmsgid?: number;
+    ban_flag?: number;
+    checking?: number;
+    copyright_stat?: number;
+    copyright_type?: number;
+    has_red_packet_cover?: number;
+    is_pay_subscribe?: number;
+    item_show_type?: number;
+    media_duration?: string;
+    mediaapi_publish_status?: number;
+    pic_cdn_url_1_1?: string;
+    pic_cdn_url_3_4?: string;
+    pic_cdn_url_16_9?: string;
+    pic_cdn_url_235_1?: string;
+  }>,
+  scopeId?: string | null
+): Promise<void> {
+  if (articles.length === 0) return;
+
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+
+  // Collect unique fakeids and ensure account records exist (foreign key requirement)
+  const uniqueFakeids = [...new Set(articles.map(a => a.fakeid))];
+  for (const fakeid of uniqueFakeids) {
+    sqlite.run(
+      `INSERT OR IGNORE INTO worker_scope_accounts (scope_id, fakeid, nickname, round_head_img, total_count, article_count, message_count, created_at, updated_at)
+       VALUES (?, ?, '', '', 0, 0, 0, ?, ?)`,
+      [resolvedScopeId, fakeid, now, now]
+    );
+  }
+
+  for (const article of articles) {
+    const articleId = `${article.fakeid}:${article.aid}`;
+    sqlite.run(
+      `
+        INSERT INTO worker_scope_articles (
+          scoped_id, scope_id, id, fakeid, aid, title, link, cover, digest, create_time, update_time, itemidx,
+          is_deleted, status, html_downloaded, html_path, html_updated_at, created_at, updated_at,
+          author_name, album_id, appmsg_album_infos, appmsgid, ban_flag, checking, copyright_stat,
+          copyright_type, has_red_packet_cover, is_pay_subscribe, item_show_type, media_duration,
+          mediaapi_publish_status, pic_cdn_url_1_1, pic_cdn_url_3_4, pic_cdn_url_16_9, pic_cdn_url_235_1,
+          is_single
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(scoped_id) DO UPDATE SET
+          title = excluded.title,
+          link = excluded.link,
+          cover = excluded.cover,
+          digest = excluded.digest,
+          create_time = excluded.create_time,
+          update_time = excluded.update_time,
+          itemidx = excluded.itemidx,
+          is_deleted = excluded.is_deleted,
+          status = excluded.status,
+          author_name = excluded.author_name,
+          album_id = excluded.album_id,
+          appmsg_album_infos = excluded.appmsg_album_infos,
+          appmsgid = excluded.appmsgid,
+          ban_flag = excluded.ban_flag,
+          checking = excluded.checking,
+          copyright_stat = excluded.copyright_stat,
+          copyright_type = excluded.copyright_type,
+          has_red_packet_cover = excluded.has_red_packet_cover,
+          is_pay_subscribe = excluded.is_pay_subscribe,
+          item_show_type = excluded.item_show_type,
+          media_duration = excluded.media_duration,
+          mediaapi_publish_status = excluded.mediaapi_publish_status,
+          pic_cdn_url_1_1 = excluded.pic_cdn_url_1_1,
+          pic_cdn_url_3_4 = excluded.pic_cdn_url_3_4,
+          pic_cdn_url_16_9 = excluded.pic_cdn_url_16_9,
+          pic_cdn_url_235_1 = excluded.pic_cdn_url_235_1,
+          is_single = excluded.is_single,
+          updated_at = excluded.updated_at
+      `,
+      [
+        buildScopedArticleKey(resolvedScopeId, article.fakeid, article.aid),
+        resolvedScopeId,
+        articleId,
+        article.fakeid,
+        article.aid,
+        article.title,
+        article.link,
+        article.cover || '',
+        article.digest || '',
+        article.create_time,
+        article.update_time,
+        article.itemidx,
+        article.is_deleted ? 1 : 0,
+        article._status || '',
+        now,
+        now,
+        article.author_name || '',
+        article.album_id || '',
+        JSON.stringify(article.appmsg_album_infos || []),
+        article.appmsgid || 0,
+        article.ban_flag || 0,
+        article.checking || 0,
+        article.copyright_stat || 0,
+        article.copyright_type || 0,
+        article.has_red_packet_cover || 0,
+        article.is_pay_subscribe || 0,
+        article.item_show_type || 0,
+        article.media_duration || '',
+        article.mediaapi_publish_status || 0,
+        article.pic_cdn_url_1_1 || '',
+        article.pic_cdn_url_3_4 || '',
+        article.pic_cdn_url_16_9 || '',
+        article.pic_cdn_url_235_1 || '',
+        article._single ? 1 : 0,
+      ]
+    );
+  }
+}
+
+export async function updateArticleStatusByLink(url: string, status: string, scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  sqlite.run(
+    'UPDATE worker_scope_articles SET status = ?, updated_at = ? WHERE scope_id = ? AND link = ?',
+    [status, Date.now(), resolvedScopeId, url]
+  );
+}
+
+export async function markArticleDeletedByLink(url: string, isDeleted: boolean, scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  sqlite.run(
+    'UPDATE worker_scope_articles SET is_deleted = ?, updated_at = ? WHERE scope_id = ? AND link = ?',
+    [isDeleted ? 1 : 0, Date.now(), resolvedScopeId, url]
+  );
+}
+
+export async function updateArticleFakeidByLink(url: string, newFakeid: string, scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+  sqlite.run(
+    "UPDATE worker_scope_articles SET fakeid = ?, is_single = 1, updated_at = ? WHERE scope_id = ? AND link = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
+    [newFakeid, now, resolvedScopeId, url]
+  );
+}
+
+// ==================== HTML operations ====================
+
+interface ScopeHtmlRow {
+  scope_id: string;
+  fakeid: string;
+  url: string;
+  title: string;
+  comment_id: string | null;
+  html_path: string | null;
+  file_size: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export async function getHtmlMeta(url: string, scopeId?: string | null): Promise<ScopeHtmlRow | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  return sqlite.get<ScopeHtmlRow>(
+    'SELECT * FROM worker_scope_html WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+}
+
+export async function getHtmlCacheUrlsByFakeid(fakeid: string, scopeId?: string | null): Promise<string[]> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const rows = sqlite.all<{ url: string }>(
+    'SELECT url FROM worker_scope_html WHERE scope_id = ? AND fakeid = ?',
+    [resolvedScopeId, fakeid]
+  );
+  return rows.map(r => r.url);
+}
+
+export async function saveHtmlFile(
+  data: { fakeid: string; url: string; title: string; commentID?: string | null },
+  fileBuffer: Buffer,
+  scopeId?: string | null
+): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+
+  const [fs, path, crypto] = await Promise.all([import('node:fs/promises'), import('node:path'), import('node:crypto')]);
+  const hash = crypto.createHash('sha256').update(data.url).digest('hex').slice(0, 16);
+  const dirPath = path.resolve(process.cwd(), `.data/scope-html/${resolvedScopeId}/${data.fakeid}`);
+  const filePath = path.join(dirPath, `${hash}.html`);
+  await fs.mkdir(dirPath, { recursive: true });
+  await fs.writeFile(filePath, fileBuffer);
+
+  const now = Date.now();
+  sqlite.run(
+    `
+      INSERT INTO worker_scope_html (scope_id, fakeid, url, title, comment_id, html_path, file_size, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(scope_id, url) DO UPDATE SET
+        title = excluded.title,
+        comment_id = excluded.comment_id,
+        html_path = excluded.html_path,
+        file_size = excluded.file_size,
+        updated_at = excluded.updated_at
+    `,
+    [resolvedScopeId, data.fakeid, data.url, data.title, data.commentID || null, filePath, fileBuffer.length, now, now]
+  );
+}
+
+export async function readHtmlFile(url: string, scopeId?: string | null): Promise<{ meta: ScopeHtmlRow; content: Buffer } | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const meta = sqlite.get<ScopeHtmlRow>(
+    'SELECT * FROM worker_scope_html WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+  if (!meta?.html_path) return undefined;
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+  try {
+    const filePath = path.resolve(process.cwd(), meta.html_path);
+    const content = await fs.readFile(filePath);
+    return { meta, content };
+  } catch {
+    return undefined;
+  }
+}
+
+export async function deleteHtmlFile(url: string, scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const meta = sqlite.get<{ html_path: string | null }>(
+    'SELECT html_path FROM worker_scope_html WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+  if (meta?.html_path) {
+    const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+    await fs.unlink(path.resolve(process.cwd(), meta.html_path)).catch(() => {});
+  }
+  sqlite.run('DELETE FROM worker_scope_html WHERE scope_id = ? AND url = ?', [resolvedScopeId, url]);
+}
+
+// ==================== Resource operations ====================
+
+export async function getResourceMeta(url: string, scopeId?: string | null) {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  return sqlite.get(
+    'SELECT * FROM worker_scope_resources WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+}
+
+export async function saveResourceFile(
+  data: { fakeid: string; url: string; contentType: string },
+  fileBuffer: Buffer,
+  scopeId?: string | null
+): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+
+  const [fs, path, crypto] = await Promise.all([import('node:fs/promises'), import('node:path'), import('node:crypto')]);
+  const hash = crypto.createHash('sha256').update(data.url).digest('hex').slice(0, 16);
+  const ext = data.contentType.includes('css') ? '.css' : data.contentType.includes('javascript') ? '.js' : '.bin';
+  const dirPath = path.resolve(process.cwd(), `.data/scope-resources/${resolvedScopeId}`);
+  const filePath = path.join(dirPath, `${hash}${ext}`);
+  await fs.mkdir(dirPath, { recursive: true });
+  await fs.writeFile(filePath, fileBuffer);
+
+  const now = Date.now();
+  sqlite.run(
+    `
+      INSERT INTO worker_scope_resources (scope_id, fakeid, url, content_type, resource_path, file_size, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(scope_id, url) DO UPDATE SET
+        content_type = excluded.content_type,
+        resource_path = excluded.resource_path,
+        file_size = excluded.file_size
+    `,
+    [resolvedScopeId, data.fakeid, data.url, data.contentType, filePath, fileBuffer.length, now]
+  );
+}
+
+export async function readResourceFile(url: string, scopeId?: string | null): Promise<{ meta: any; content: Buffer } | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const meta = sqlite.get<any>(
+    'SELECT * FROM worker_scope_resources WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+  if (!meta?.resource_path) return undefined;
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+  try {
+    const filePath = path.resolve(process.cwd(), meta.resource_path);
+    const content = await fs.readFile(filePath);
+    return { meta, content };
+  } catch {
+    return undefined;
+  }
+}
+
+// ==================== Resource map operations ====================
+
+export async function getResourceMap(url: string, scopeId?: string | null): Promise<{ fakeid: string; url: string; resources: string[] } | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const row = sqlite.get<{ fakeid: string; url: string; resources: string }>(
+    'SELECT * FROM worker_scope_resource_map WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+  if (!row) return undefined;
+  return { fakeid: row.fakeid, url: row.url, resources: JSON.parse(row.resources) };
+}
+
+export async function saveResourceMap(data: { fakeid: string; url: string; resources: string[] }, scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const now = Date.now();
+  sqlite.run(
+    `
+      INSERT INTO worker_scope_resource_map (scope_id, fakeid, url, resources, created_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(scope_id, url) DO UPDATE SET
+        resources = excluded.resources
+    `,
+    [resolvedScopeId, data.fakeid, data.url, JSON.stringify(data.resources), now]
+  );
+}
+
+// ==================== Debug operations ====================
+
+export async function getDebugMeta(url: string, scopeId?: string | null) {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  return sqlite.get(
+    'SELECT * FROM worker_scope_debug WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+}
+
+export async function getAllDebugEntries(scopeId?: string | null) {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  return sqlite.all(
+    'SELECT * FROM worker_scope_debug WHERE scope_id = ? ORDER BY created_at DESC',
+    [resolvedScopeId]
+  );
+}
+
+export async function saveDebugFile(
+  data: { fakeid: string; url: string; type: string; title: string },
+  fileBuffer: Buffer,
+  scopeId?: string | null
+): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+
+  const [fs, path, crypto] = await Promise.all([import('node:fs/promises'), import('node:path'), import('node:crypto')]);
+  const hash = crypto.createHash('sha256').update(data.url).digest('hex').slice(0, 16);
+  const dirPath = path.resolve(process.cwd(), `.data/scope-debug/${resolvedScopeId}`);
+  const filePath = path.join(dirPath, `${hash}.html`);
+  await fs.mkdir(dirPath, { recursive: true });
+  await fs.writeFile(filePath, fileBuffer);
+
+  const now = Date.now();
+  sqlite.run(
+    `
+      INSERT INTO worker_scope_debug (scope_id, fakeid, url, type, title, html_path, file_size, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(scope_id, url) DO UPDATE SET
+        type = excluded.type,
+        title = excluded.title,
+        html_path = excluded.html_path,
+        file_size = excluded.file_size
+    `,
+    [resolvedScopeId, data.fakeid, data.url, data.type, data.title, filePath, fileBuffer.length, now]
+  );
+}
+
+export async function readDebugFile(url: string, scopeId?: string | null): Promise<{ meta: any; content: Buffer } | undefined> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const meta = sqlite.get<any>(
+    'SELECT * FROM worker_scope_debug WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, url]
+  );
+  if (!meta?.html_path) return undefined;
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+  try {
+    const filePath = path.resolve(process.cwd(), meta.html_path);
+    const content = await fs.readFile(filePath);
+    return { meta, content };
+  } catch {
+    return undefined;
+  }
+}
+
+// ==================== Delete all account data ====================
+
+export async function deleteAllAccountData(fakeids: string[], scopeId?: string | null): Promise<void> {
+  if (fakeids.length === 0) return;
+
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+  const placeholders = fakeids.map(() => '?').join(', ');
+
+  // Delete HTML files from disk
+  const htmlRows = sqlite.all<{ html_path: string | null }>(
+    `SELECT html_path FROM worker_scope_html WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
+    [resolvedScopeId, ...fakeids]
+  );
+  const resourceRows = sqlite.all<{ resource_path: string | null }>(
+    `SELECT resource_path FROM worker_scope_resources WHERE scope_id = ? AND fakeid IN (${placeholders}) AND resource_path IS NOT NULL`,
+    [resolvedScopeId, ...fakeids]
+  );
+  const debugRows = sqlite.all<{ html_path: string | null }>(
+    `SELECT html_path FROM worker_scope_debug WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
+    [resolvedScopeId, ...fakeids]
+  );
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+  const allPaths = [
+    ...htmlRows.map(r => r.html_path),
+    ...resourceRows.map(r => r.resource_path),
+    ...debugRows.map(r => r.html_path),
+  ].filter(Boolean) as string[];
+
+  for (const filePath of allPaths) {
+    await fs.unlink(path.resolve(process.cwd(), filePath)).catch(() => {});
+  }
+
+  // Also delete worker scope article HTML files
+  const workerArticleRows = sqlite.all<{ html_path: string | null }>(
+    `SELECT html_path FROM worker_scope_articles WHERE scope_id = ? AND fakeid IN (${placeholders}) AND html_path IS NOT NULL`,
+    [resolvedScopeId, ...fakeids]
+  );
+  for (const row of workerArticleRows) {
+    if (row.html_path) {
+      await fs.unlink(path.resolve(process.cwd(), row.html_path)).catch(() => {});
+    }
+  }
+
+  // Delete from all tables
+  const tables = [
+    'worker_scope_articles',
+    'worker_scope_accounts',
+    'worker_scope_html',
+    'worker_scope_resources',
+    'worker_scope_resource_map',
+    'worker_scope_debug',
+  ];
+  for (const table of tables) {
+    sqlite.run(`DELETE FROM ${table} WHERE scope_id = ? AND fakeid IN (${placeholders})`, [resolvedScopeId, ...fakeids]);
+  }
+}
+
+export async function deleteArticleById(articleId: string, scopeId?: string | null): Promise<void> {
+  const resolvedScopeId = normalizeWorkerScopeId(scopeId);
+  const sqlite = await getSqlite();
+  await ensureWorkerScopeReady(sqlite, resolvedScopeId);
+
+  // Get article metadata for satellite table cleanup
+  const article = sqlite.get<{ html_path: string | null; link: string; fakeid: string }>(
+    'SELECT html_path, link, fakeid FROM worker_scope_articles WHERE scope_id = ? AND id = ?',
+    [resolvedScopeId, articleId]
+  );
+
+  if (!article) return;
+
+  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')]);
+
+  // Delete article HTML file
+  if (article.html_path) {
+    await fs.unlink(path.resolve(process.cwd(), article.html_path)).catch(() => {});
+  }
+
+  // Clean up satellite tables for this article's link
+  const link = article.link;
+  const fakeid = article.fakeid;
+
+  // Delete from worker_scope_html and its disk file
+  const htmlRow = sqlite.get<{ html_path: string | null }>(
+    'SELECT html_path FROM worker_scope_html WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, link]
+  );
+  if (htmlRow?.html_path) {
+    await fs.unlink(path.resolve(process.cwd(), htmlRow.html_path)).catch(() => {});
+  }
+  sqlite.run('DELETE FROM worker_scope_html WHERE scope_id = ? AND url = ?', [resolvedScopeId, link]);
+
+  // Delete from worker_scope_debug and its disk file
+  const debugRow = sqlite.get<{ html_path: string | null }>(
+    'SELECT html_path FROM worker_scope_debug WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, link]
+  );
+  if (debugRow?.html_path) {
+    await fs.unlink(path.resolve(process.cwd(), debugRow.html_path)).catch(() => {});
+  }
+  sqlite.run('DELETE FROM worker_scope_debug WHERE scope_id = ? AND url = ?', [resolvedScopeId, link]);
+
+  // Delete resource map and associated resources
+  const resourceMap = sqlite.get<{ resources: string }>(
+    'SELECT resources FROM worker_scope_resource_map WHERE scope_id = ? AND url = ?',
+    [resolvedScopeId, link]
+  );
+  if (resourceMap) {
+    const resourceUrls: string[] = JSON.parse(resourceMap.resources || '[]');
+    for (const resourceUrl of resourceUrls) {
+      const resourceRow = sqlite.get<{ resource_path: string | null }>(
+        'SELECT resource_path FROM worker_scope_resources WHERE scope_id = ? AND url = ?',
+        [resolvedScopeId, resourceUrl]
+      );
+      if (resourceRow?.resource_path) {
+        await fs.unlink(path.resolve(process.cwd(), resourceRow.resource_path)).catch(() => {});
+      }
+      sqlite.run('DELETE FROM worker_scope_resources WHERE scope_id = ? AND url = ?', [resolvedScopeId, resourceUrl]);
+    }
+  }
+  sqlite.run('DELETE FROM worker_scope_resource_map WHERE scope_id = ? AND url = ?', [resolvedScopeId, link]);
+
+  sqlite.run('DELETE FROM worker_scope_articles WHERE scope_id = ? AND id = ?', [resolvedScopeId, articleId]);
 }

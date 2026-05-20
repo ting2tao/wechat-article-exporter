@@ -1,5 +1,3 @@
-const DEXIE_DB_PREFIX = 'exporter.wxdown.online';
-
 export function parseScopeIdFromStoredLogin(raw: string | null | undefined): string | null {
   if (!raw) {
     return null;
@@ -11,10 +9,6 @@ export function parseScopeIdFromStoredLogin(raw: string | null | undefined): str
   } catch {
     return null;
   }
-}
-
-export function buildScopedDexieName(scopeId: string): string {
-  return `${DEXIE_DB_PREFIX}::${scopeId}`;
 }
 
 export function getStoredScopeId(): string | null {

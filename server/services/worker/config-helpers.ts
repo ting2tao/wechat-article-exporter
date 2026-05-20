@@ -31,6 +31,20 @@ export function parseStoredStringArray(value: string | null | undefined): string
   }
 }
 
+export function normalizeAlertWebhookUrl(value: string | null | undefined) {
+  const normalized = value?.trim() || '';
+  if (!normalized) {
+    return '';
+  }
+
+  try {
+    const url = new URL(normalized);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? normalized : '';
+  } catch {
+    return '';
+  }
+}
+
 function normalizeStringArray(value: readonly (string | null | undefined)[] | null | undefined) {
   const result: string[] = [];
   const seen = new Set<string>();

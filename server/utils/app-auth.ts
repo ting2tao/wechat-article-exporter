@@ -8,7 +8,7 @@ const APP_AUTH_SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 const DEFAULT_USERNAME = 'admin';
 const DEFAULT_PASSWORD = '121212';
-const DEFAULT_PASSWORD_SALT = 'wechat-article-exporter-default-auth-salt';
+const DEFAULT_PASSWORD_SALT = 'wx-exporter-default-auth-salt';
 
 interface AppAuthCredentialRecord {
   username: string;

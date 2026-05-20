@@ -8,6 +8,7 @@ const {
   normalizeScheduledExportDate,
   normalizeScheduledExportDateRangeType,
   normalizeScheduledExportRecentDays,
+  normalizeAlertWebhookUrl,
   normalizeSelectedAccountFakeids,
   normalizeSelectedExportFormats,
   parseStoredStringArray,
@@ -26,6 +27,15 @@ test('normalizeSelectedExportFormats filters unsupported values', () => {
 
 test('parseStoredStringArray falls back to empty array for invalid JSON', () => {
   assert.deepEqual(parseStoredStringArray('not-json'), []);
+});
+
+test('normalizeAlertWebhookUrl keeps only http urls', () => {
+  assert.equal(normalizeAlertWebhookUrl('11'), '');
+  assert.equal(normalizeAlertWebhookUrl('ftp://example.com/webhook'), '');
+  assert.equal(
+    normalizeAlertWebhookUrl(' https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abc '),
+    'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abc'
+  );
 });
 
 test('scheduled export date controls are normalized', () => {

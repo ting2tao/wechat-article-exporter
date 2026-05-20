@@ -28,7 +28,7 @@ import { isDev, websiteName } from '~/config';
 import { sharedGridOptions } from '~/config/shared-grid-options';
 import { articleDeleted, getArticleCache, updateArticleStatus, upsertArticleCacheRecords } from '~/store/v2/article';
 import { getDebugCache } from '~/store/v2/debug';
-import { getHtmlCache, getHtmlCacheUrlsByFakeid, upsertHtmlCaches } from '~/store/v2/html';
+import { getHtmlCacheUrlsByFakeid, upsertHtmlCaches } from '~/store/v2/html';
 import { type MpAccount } from '~/store/v2/info';
 import type { Preferences } from '~/types/preferences';
 import type { AppMsgExWithFakeID } from '~/types/types';
@@ -340,12 +340,10 @@ async function switchTableData(fakeid: string) {
   await upsertArticleCacheRecords(mergedArticles);
   await backfillWorkerHtmlCaches(fakeid, workerArticles);
 
-  const data = await getArticleCache(fakeid, Math.floor(Date.now() / 1000));
-  for (const article of data) {
-    const contentDownload = (await getHtmlCache(article.link)) !== undefined;
+  for (const article of mergedArticles) {
     articles.push({
       ...article,
-      contentDownload: contentDownload,
+      contentDownload: article.html_downloaded ?? false,
     });
   }
   await sleep(200);
@@ -489,7 +487,7 @@ function copyWechatLink() {
               { label: 'HTML', event: 'export-article-html' },
               { label: 'Txt', event: 'export-article-text' },
               { label: 'Markdown', event: 'export-article-markdown' },
-              { label: 'Word (内测中)', event: 'export-article-word' },
+              { label: 'Word', event: 'export-article-word' },
               // { label: 'PDF (计划中)', event: 'export-article-pdf', disabled: true },
             ]"
             @export-article-excel="exportFile('excel', selectedArticleUrls)"

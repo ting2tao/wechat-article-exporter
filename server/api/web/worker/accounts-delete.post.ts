@@ -1,5 +1,6 @@
 import { removeTrackedAccounts } from '~/server/services/worker/repository';
 import { getAuthKeyFromRequest } from '~/server/utils/proxy-request';
+import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 
 export default defineEventHandler(async event => {
   const body = await readBody<{ fakeids?: string[] }>(event);
@@ -12,6 +13,7 @@ export default defineEventHandler(async event => {
     });
   }
 
-  await removeTrackedAccounts(fakeids, authKey);
+  const scopeId = await resolveScopeIdFromRequest(event);
+  await removeTrackedAccounts(fakeids, scopeId);
   return { ok: true };
 });

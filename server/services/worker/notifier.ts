@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { normalizeAlertWebhookUrl } from '~/server/services/worker/config-helpers';
 import { getSchedulerConfig } from '~/server/services/worker/repository';
 
 const NOTIFY_DEDUP_PREFIX = 'worker-notify:';
@@ -37,7 +38,7 @@ async function markNotificationSent(dedupeKey?: string, cooldownMs = 0) {
 }
 
 export async function notifyWorkerStatus(payload: WorkerNotifyPayload) {
-  const webhookUrl = (await getSchedulerConfig(payload.scopeId)).alertWebhookUrl.trim();
+  const webhookUrl = normalizeAlertWebhookUrl((await getSchedulerConfig(payload.scopeId)).alertWebhookUrl);
   if (!webhookUrl) {
     return false;
   }

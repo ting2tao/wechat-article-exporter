@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { APP_REPOSITORY_URL } from '~/config';
 import { gotoLink } from '~/utils';
 </script>
 
@@ -8,7 +9,7 @@ import { gotoLink } from '~/utils';
     <li>
       <UTooltip text="GitHub">
         <UIcon
-          @click="gotoLink('https://github.com/ting2tao/wx-articles-manage')"
+          @click="gotoLink(APP_REPOSITORY_URL)"
           name="i-lucide:github"
           class="size-7 text-zinc-400 hover:text-blue-500 cursor-pointer transition-colors"
         />
