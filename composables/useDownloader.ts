@@ -64,6 +64,11 @@ export default (options: Partial<DownloadArticleOptions> = {}) => {
       downloader.on('download:stop', () => {
         toast.info('HTML下载任务已停止');
       });
+      downloader.on('fix:fakeid', (url: string, fakeid: string) => {
+        if (typeof options.onFakeID === 'function') {
+          options.onFakeID(url, fakeid);
+        }
+      });
 
       await downloader.startDownload('html');
     } catch (error) {

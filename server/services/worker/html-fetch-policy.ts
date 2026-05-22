@@ -1,4 +1,4 @@
-import { USER_AGENT } from '../../../config/index.ts';
+import { USER_AGENT } from '../../../config/index';
 
 export function getMpArticleFetchHeaders() {
   return {

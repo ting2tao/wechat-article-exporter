@@ -141,6 +141,16 @@ export class Downloader extends BaseDownloader {
         const html = await blob.text();
         const [status, commentID] = validateHTMLContent(html);
         if (status === 'Success') {
+          // Extract real fakeid from HTML and emit fix event for single articles
+          try {
+            const cgiData = await parseCgiDataNew(html);
+            if (cgiData?.bizuin && cgiData.bizuin !== article.fakeid) {
+              this.emit('fix:fakeid', url, cgiData.bizuin);
+            }
+          } catch {
+            // Ignore parse errors; fakeid fix is best-effort
+          }
+
           await updateHtmlCache({
             fakeid: article.fakeid,
             url,

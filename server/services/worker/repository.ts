@@ -1125,7 +1125,7 @@ export async function listTrackedAccounts(scopeId?: string | null): Promise<MpAc
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
   const rows = sqlite.all<WorkerAccountRow>(
-    'SELECT * FROM worker_scope_accounts WHERE scope_id = ? ORDER BY created_at DESC',
+    "SELECT * FROM worker_scope_accounts WHERE scope_id = ? AND fakeid != 'SINGLE_ARTICLE_FAKEID' ORDER BY created_at DESC",
     [resolvedScopeId]
   );
   return rows.map(mapWorkerAccountRow);
@@ -1553,7 +1553,7 @@ export async function listPendingHtmlArticles(
       : '';
   const createTimeStartFilter = createTimeStart == null ? '' : ' AND create_time >= ?';
   const createTimeEndFilter = createTimeEnd == null ? '' : ' AND create_time <= ?';
-  const params = [...(normalizedFakeids || [])];
+  const params: (string | number)[] = [...(normalizedFakeids || [])];
   if (createTimeStart != null) {
     params.push(createTimeStart);
   }
@@ -1889,7 +1889,19 @@ export async function upsertArticleCacheRecords(
   }
 
   for (const article of articles) {
+    const scopedId = buildScopedArticleKey(resolvedScopeId, article.fakeid, article.aid);
     const articleId = `${article.fakeid}:${article.aid}`;
+
+    // Delete existing row with same (scope_id, link) if scoped_id differs.
+    // This avoids PRIMARY KEY conflict when fakeid changes (e.g. SINGLE_ARTICLE_FAKEID → real fakeid).
+    const existing = sqlite.get<{ scoped_id: string }>(
+      'SELECT scoped_id FROM worker_scope_articles WHERE scope_id = ? AND link = ?',
+      [resolvedScopeId, article.link]
+    );
+    if (existing && existing.scoped_id !== scopedId) {
+      sqlite.run('DELETE FROM worker_scope_articles WHERE scope_id = ? AND link = ?', [resolvedScopeId, article.link]);
+    }
+
     sqlite.run(
       `
         INSERT INTO worker_scope_articles (
@@ -1902,7 +1914,6 @@ export async function upsertArticleCacheRecords(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(scoped_id) DO UPDATE SET
           title = excluded.title,
-          link = excluded.link,
           cover = excluded.cover,
           digest = excluded.digest,
           create_time = excluded.create_time,
@@ -1931,7 +1942,7 @@ export async function upsertArticleCacheRecords(
           updated_at = excluded.updated_at
       `,
       [
-        buildScopedArticleKey(resolvedScopeId, article.fakeid, article.aid),
+        scopedId,
         resolvedScopeId,
         articleId,
         article.fakeid,
@@ -2007,10 +2018,56 @@ export async function updateArticleFakeidByLink(
   const sqlite = await getSqlite();
   await ensureWorkerScopeReady(sqlite, resolvedScopeId);
   const now = Date.now();
+
+  // Read existing article to get the aid for rebuilding scoped_id
+  const existing = sqlite.get<{ aid: string }>(
+    "SELECT aid FROM worker_scope_articles WHERE scope_id = ? AND link = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
+    [resolvedScopeId, url]
+  );
+  if (!existing) return;
+
+  // Ensure the real fakeid has an account record (FK constraint requires it)
   sqlite.run(
-    "UPDATE worker_scope_articles SET fakeid = ?, is_single = 1, updated_at = ? WHERE scope_id = ? AND link = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
+    `INSERT OR IGNORE INTO worker_scope_accounts (scope_id, fakeid, nickname, round_head_img, total_count, article_count, message_count, created_at, updated_at)
+     VALUES (?, ?, '', '', 0, 0, 0, ?, ?)`,
+    [resolvedScopeId, newFakeid, now, now]
+  );
+
+  // Rebuild scoped_id and id with the real fakeid, then replace the old record.
+  // If a record with the new scoped_id already exists, just delete the stale SINGLE_ARTICLE_FAKEID row.
+  const newScopedId = buildScopedArticleKey(resolvedScopeId, newFakeid, existing.aid);
+  const newId = `${newFakeid}:${existing.aid}`;
+  const conflict = sqlite.get<{ 1: number }>('SELECT 1 FROM worker_scope_articles WHERE scoped_id = ?', [newScopedId]);
+  if (conflict) {
+    sqlite.run(
+      "DELETE FROM worker_scope_articles WHERE scope_id = ? AND link = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
+      [resolvedScopeId, url]
+    );
+  } else {
+    sqlite.run(
+      `UPDATE worker_scope_articles
+       SET scoped_id = ?, id = ?, fakeid = ?, is_single = 1, updated_at = ?
+       WHERE scope_id = ? AND link = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'`,
+      [newScopedId, newId, newFakeid, now, resolvedScopeId, url]
+    );
+  }
+
+  // Update html cache records to reflect the real fakeid
+  sqlite.run(
+    "UPDATE worker_scope_html SET fakeid = ?, updated_at = ? WHERE scope_id = ? AND url = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
     [newFakeid, now, resolvedScopeId, url]
   );
+
+  // Clean up the old SINGLE_ARTICLE_FAKEID account if no more articles reference it
+  const remaining = sqlite.get<{ count: number }>(
+    "SELECT COUNT(*) as count FROM worker_scope_articles WHERE scope_id = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'",
+    [resolvedScopeId]
+  );
+  if (remaining && remaining.count === 0) {
+    sqlite.run("DELETE FROM worker_scope_accounts WHERE scope_id = ? AND fakeid = 'SINGLE_ARTICLE_FAKEID'", [
+      resolvedScopeId,
+    ]);
+  }
 }
 
 // ==================== HTML operations ====================

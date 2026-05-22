@@ -1,4 +1,4 @@
-import type { AppMsgEx } from '~/types/types';
+import type { AppMsgExWithFakeID } from '~/types/types';
 import { upsertArticleCacheRecords } from '~/server/services/worker/repository';
 import { resolveScopeIdFromRequest } from '~/server/utils/scope-resolver';
 
@@ -10,7 +10,7 @@ export default defineEventHandler(async event => {
     throw createError({ statusCode: 400, statusMessage: 'Missing or invalid articles array' });
   }
 
-  const articles = body.articles as AppMsgEx[];
+  const articles = body.articles as AppMsgExWithFakeID[];
   if (articles.length === 0) {
     return { ok: true };
   }

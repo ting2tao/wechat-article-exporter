@@ -2,7 +2,7 @@ import { createError, getRequestProtocol, H3Event, parseCookies } from 'h3';
 import { Agent } from 'undici';
 import { v4 as uuidv4 } from 'uuid';
 import { isDev, USER_AGENT } from '~/config';
-import { RequestOptions } from '~/server/types';
+import type { RequestOptions } from '~/server/types';
 import { buildMpAuthCookies } from '~/server/utils/auth-cookie';
 import { cookieStore, getCookieFromStore } from '~/server/utils/CookieStore';
 import { logRequest, logResponse } from '~/server/utils/logger';
@@ -88,7 +88,7 @@ export async function proxyMpRequest(options: RequestOptions) {
   } catch (error) {
     if (allowInsecureMpTls && shouldRetryWithInsecureTls(error)) {
       console.warn('[mp-proxy] TLS certificate validation failed, retrying with insecure TLS in development mode');
-      mpResponse = await fetch(request, { dispatcher: insecureTlsDispatcher });
+      mpResponse = await fetch(request, { dispatcher: insecureTlsDispatcher } as any);
     } else {
       throw createError({
         statusCode: 502,
